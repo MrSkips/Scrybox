@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scrybox — Search Your Collection</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mana-font@latest/css/mana.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Beleren+Bold:wght@400&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=20">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="logo" href="#" id="logoLink">
+      <span class="logo-main">Scry</span><span class="logo-accent">box</span>
+    </a>
+    <nav class="topnav">
+      <a href="#" id="navCollection" class="active">Collection</a>
+      <a href="#" id="navDecks">Decks</a>
+      <a href="#" id="navBinders">Binders</a>
+      <a href="#" id="navDeckBuilder">Deck Builder</a>
+      <a href="#" id="navValue">Value</a>
+      <a href="#" id="navStats">Stats</a>
+      <a href="#" id="navUpload">Upload / Resync</a>
+    </nav>
+    <div class="topbar-right">
+      <div class="topbar-info">
+        <span id="collectionCount" class="collection-count"></span>
+        <span id="lastSyncedInfo" class="last-synced"></span>
+        <span id="staleReminder" class="stale-reminder hidden"></span>
+        <span id="totalValueInfo" class="total-value-info"></span>
+      </div>
+      <button type="button" id="generalSettingsBtn" class="ai-settings-btn" title="Settings">⚙ Settings</button>
+    </div>
+  </div>
+</header>
+
+<!-- UPLOAD SCREEN -->
+<section id="uploadScreen" class="upload-screen">
+  <div class="upload-card">
+    <h1>Search your own collection, Scryfall-style</h1>
+    <p class="upload-sub">Upload your ManaBox collection export (CSV) to get started. Everything is stored locally in your browser — nothing is uploaded anywhere except public card data fetched from the Scryfall API.</p>
+
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="csvInput" accept=".csv" hidden>
+      <span class="dropzone-icon">⬆</span>
+      <span class="dropzone-text">Click to choose your ManaBox CSV export, or drag it here</span>
+    </label>
+
+    <div id="uploadStatus" class="upload-status"></div>
+
+    <details class="upload-help">
+      <summary>Where do I get this file?</summary>
+      <p>In the ManaBox app: <strong>Collection tab → menu (top right) → Export → CSV file</strong>. Save it somewhere you can find it, then upload it here.</p>
+    </details>
+
+    <div class="backup-row">
+      <button type="button" id="backupDownloadBtn" class="backup-btn">Download full backup (.json)</button>
+      <label class="backup-btn backup-restore-label" for="backupRestoreInput">Restore from backup…</label>
+      <input type="file" id="backupRestoreInput" accept=".json" hidden>
+      <p class="fg-hint">A full backup includes every card's enriched Scryfall data, your scratchpad, excluded binders, and saved searches — restoring it skips re-fetching from Scryfall entirely, unlike a CSV re-sync.</p>
+    </div>
+
+    <div class="reset-row">
+      <button type="button" id="resetCollectionBtn" class="reset-btn">Reset collection (clear all data)</button>
+      <p class="fg-hint reset-hint">Wipes everything cached in this browser — collection, quantities, binder/deck data — so your next upload starts completely fresh instead of syncing against what's here now.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DECKS / BINDERS INDEX SCREEN -->
+<section id="folderScreen" class="folder-screen hidden">
+  <div class="folder-screen-inner">
+    <h1 id="folderScreenTitle">Decks</h1>
+    <p id="folderScreenSub" class="folder-screen-sub"></p>
+    <div id="folderGrid" class="folder-grid"></div>
+    <div id="folderEmptyState" class="empty-state hidden"></div>
+  </div>
+</section>
+
+<!-- STATS SCREEN -->
+<section id="statsScreen" class="stats-screen hidden">
+  <div class="stats-inner">
+    <h1>Collection Stats</h1>
+    <div id="statsEmpty" class="empty-state hidden">No cards to summarize yet — import a collection first.</div>
+    <div id="statsBody" class="stats-body">
+      <div class="stats-summary-row" id="statsSummaryRow"></div>
+
+      <div class="stats-grid">
+        <div class="stats-card">
+          <h3>Color Identity Breakdown</h3>
+          <div id="statsColorBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Mana Curve</h3>
+          <div id="statsCurveBars" class="stats-bars stats-curve"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Rarity Split</h3>
+          <div id="statsRarityBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Card Type Breakdown</h3>
+          <div id="statsTypeBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Top Sets by Card Count</h3>
+          <div id="statsSetBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Top 10 Most Complete Sets</h3>
+          <p class="fg-hint">How close you are to a full set, by unique printings owned vs. Scryfall's total count for that set (includes all rarities/variants, so exact completion may differ from a "main set" checklist).</p>
+          <div id="statsCompletionBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Format Legality Coverage</h3>
+          <p class="fg-hint">% of your unique cards that are legal in each format.</p>
+          <div id="statsLegalityBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Value Distribution</h3>
+          <p class="fg-hint">How many unique cards fall into each price bucket.</p>
+          <div id="statsValueDistBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Guild / Wedge / Shard Breakdown</h3>
+          <p class="fg-hint">Your multicolor cards, split by exact color combination.</p>
+          <div id="statsGuildBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Top 10 Keywords</h3>
+          <div id="statsKeywordBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Top Artists</h3>
+          <div id="statsArtistBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Top Sets by Value</h3>
+          <div id="statsSetValueBars" class="stats-bars"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Special Printings</h3>
+          <div class="stats-summary-row" id="statsSpecialSummary"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Top 10 Most Valuable Cards</h3>
+          <div id="statsTopValuable" class="stats-list"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Oldest Printings</h3>
+          <div id="statsOldest" class="stats-list"></div>
+        </div>
+        <div class="stats-card">
+          <h3>Newest Printings</h3>
+          <div id="statsNewest" class="stats-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAIN APP -->
+<main id="app" class="app hidden">
+
+  <div id="scopeBanner" class="scope-banner hidden">
+    Viewing <strong id="scopeBannerName"></strong>
+    <button type="button" id="scopeBannerBack">← Back to full collection</button>
+  </div>
+
+  <div id="deckGradePanel" class="deck-grade-panel hidden">
+    <h3 class="deck-tools-heading">🎴 Deck Tools</h3>
+    <div class="deck-commander-row">
+      <span class="deck-commander-label">Commander:</span>
+      <span id="deckCommanderDisplay" class="deck-commander-value">(not set — AI will guess)</span>
+      <button type="button" id="setCommanderBtn">Set commander</button>
+    </div>
+    <div id="setCommanderRow" class="set-commander-row hidden">
+      <input type="text" id="setCommanderInput" list="setCommanderOptions" placeholder="Start typing a card name…">
+      <datalist id="setCommanderOptions"></datalist>
+      <button type="button" id="setCommanderSaveBtn">Save</button>
+      <button type="button" id="setCommanderClearBtn">Clear</button>
+      <button type="button" id="setCommanderCancelBtn">Cancel</button>
+    </div>
+    <div class="deck-grade-actions">
+      <button type="button" id="gradeWithAiBtn">Grade with AI</button>
+      <button type="button" id="copyGradePromptBtn">Copy prompt for Claude</button>
+      <button type="button" id="pasteGradeToggleBtn">Paste Claude's reply…</button>
+      <span id="deckGradeStatus" class="deck-grade-status"></span>
+    </div>
+    <div id="pasteGradeRow" class="paste-grade-row hidden">
+      <p class="fg-hint">Paste Claude's full reply below — it's written to end with a small JSON block after its explanation specifically so this works. Paste the whole thing; the JSON block at the end is all that actually gets read.</p>
+      <textarea id="pasteGradeInput" rows="6" placeholder="Paste Claude's response here…"></textarea>
+      <button type="button" id="pasteGradeSubmitBtn">Update score from this reply</button>
+    </div>
+    <div id="deckGradeResults" class="deck-grade-results hidden"></div>
+  </div>
+
+  <div id="valueToolbar" class="value-toolbar hidden">
+    <label for="minValueInput">Only show cards worth at least</label>
+    <span class="value-input-prefix">$</span>
+    <input type="number" id="minValueInput" min="0" step="0.5" placeholder="0">
+    <span id="valueTotal" class="value-total"></span>
+  </div>
+
+  <section class="search-hero">
+    <div class="search-hero-inner">
+      <div class="search-bar-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" class="search-bar" placeholder='Try: c:rg t:creature o:"draw a card"  —  or use the filters below'>
+        <button id="searchClearBtn" class="search-clear" title="Clear search">✕</button>
+      </div>
+      <div class="search-meta">
+        <span id="resultCount">0 cards</span>
+        <a href="#" id="syntaxHelpLink">search syntax help</a>
+        <span class="sep">·</span>
+        <a href="#" id="resyncLink">re-sync from ManaBox</a>
+        <span class="sep">·</span>
+        <a href="#" id="refreshPricesLink">refresh prices</a>
+        <span class="sep">·</span>
+        <button type="button" id="scratchpadToggleBtn" class="scratchpad-toggle">🛠 Deck Builder (<span id="scratchpadCount">0</span>)</button>
+        <span class="sep">·</span>
+        <button type="button" id="exportResultsBtn" class="export-results-btn" title="Download the cards currently shown (respecting filters/search) as a text file with names, mana costs, and oracle text — handy to hand to an AI for deckbuilding">Export results ↓</button>
+        <span id="syncStatus" class="sync-status"></span>
+      </div>
+      <div class="preset-row">
+        <select id="presetSelect">
+          <option value="">Saved searches…</option>
+        </select>
+        <button type="button" id="presetLoadBtn">Load</button>
+        <button type="button" id="presetSaveBtn">Save current as…</button>
+        <button type="button" id="presetDeleteBtn">Delete</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <aside class="filters" id="filters">
+
+      <div class="filter-group">
+        <h3>Color Identity</h3>
+        <div class="color-toggles" id="colorToggles">
+          <button type="button" class="mana-toggle" data-color="W" title="White"><i class="ms ms-w ms-cost"></i></button>
+          <button type="button" class="mana-toggle" data-color="U" title="Blue"><i class="ms ms-u ms-cost"></i></button>
+          <button type="button" class="mana-toggle" data-color="B" title="Black"><i class="ms ms-b ms-cost"></i></button>
+          <button type="button" class="mana-toggle" data-color="R" title="Red"><i class="ms ms-r ms-cost"></i></button>
+          <button type="button" class="mana-toggle" data-color="G" title="Green"><i class="ms ms-g ms-cost"></i></button>
+          <button type="button" class="mana-toggle" data-color="C" title="Colorless"><i class="ms ms-c ms-cost"></i></button>
+        </div>
+        <label class="mini-toggle"><input type="checkbox" id="colorExactToggle"> exact match only</label>
+        <p class="fg-hint">Commander-style: picking multiple colors shows anything castable in that identity (mono-colored, colorless, etc.), not just cards using all of them. Check "exact match only" to require the exact combination instead.</p>
+      </div>
+
+      <div class="filter-group">
+        <h3>Mana Value</h3>
+        <div class="range-row">
+          <input type="number" id="mvMinInput" min="0" step="1" placeholder="Min">
+          <span class="range-sep">–</span>
+          <input type="number" id="mvMaxInput" min="0" step="1" placeholder="Max">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Power / Toughness</h3>
+        <div class="range-row">
+          <span class="range-label">Pow</span>
+          <input type="number" id="powMinInput" step="1" placeholder="Min">
+          <span class="range-sep">–</span>
+          <input type="number" id="powMaxInput" step="1" placeholder="Max">
+        </div>
+        <div class="range-row">
+          <span class="range-label">Tou</span>
+          <input type="number" id="touMinInput" step="1" placeholder="Min">
+          <span class="range-sep">–</span>
+          <input type="number" id="touMaxInput" step="1" placeholder="Max">
+        </div>
+        <p class="fg-hint">Cards with non-numeric power/toughness (like *) are excluded when set.</p>
+      </div>
+
+      <div class="filter-group">
+        <h3>Playstyle <span class="fg-hint">(suggested)</span></h3>
+        <div class="chip-row" id="playstyleChips">
+          <button type="button" class="chip" data-playstyle="aggro">Aggro</button>
+          <button type="button" class="chip" data-playstyle="control">Control</button>
+          <button type="button" class="chip" data-playstyle="midrange">Midrange</button>
+          <button type="button" class="chip" data-playstyle="ramp">Ramp</button>
+          <button type="button" class="chip" data-playstyle="combo">Combo</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Mechanics</h3>
+        <p class="fg-hint mechanics-legend">click a chip: off → <span class="legend-and">AND</span> → <span class="legend-or">OR</span></p>
+        <div class="chip-row" id="mechanicsChips">
+          <!-- populated dynamically from owned cards -->
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Function <span class="fg-hint">(suggested)</span></h3>
+        <div class="chip-row" id="tagChips">
+          <button type="button" class="chip" data-tag="removal">Removal</button>
+          <button type="button" class="chip" data-tag="boardwipe">Board Wipe</button>
+          <button type="button" class="chip" data-tag="cardadvantage">Card Advantage</button>
+          <button type="button" class="chip" data-tag="protection">Protection</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Card Type</h3>
+        <div class="chip-row" id="typeChips">
+          <button type="button" class="chip" data-type="Creature">Creature</button>
+          <button type="button" class="chip" data-type="Instant">Instant</button>
+          <button type="button" class="chip" data-type="Sorcery">Sorcery</button>
+          <button type="button" class="chip" data-type="Artifact">Artifact</button>
+          <button type="button" class="chip" data-type="Enchantment">Enchantment</button>
+          <button type="button" class="chip" data-type="Planeswalker">Planeswalker</button>
+          <button type="button" class="chip" data-type="Land">Land</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Rarity</h3>
+        <div class="chip-row" id="rarityChips">
+          <button type="button" class="chip" data-rarity="common">Common</button>
+          <button type="button" class="chip" data-rarity="uncommon">Uncommon</button>
+          <button type="button" class="chip" data-rarity="rare">Rare</button>
+          <button type="button" class="chip" data-rarity="mythic">Mythic</button>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Set</h3>
+        <div class="chip-row chip-row-scroll" id="setChips">
+          <!-- populated dynamically from owned cards -->
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Release Year</h3>
+        <div class="range-row">
+          <input type="number" id="yearMinInput" min="1993" step="1" placeholder="Min">
+          <span class="range-sep">–</span>
+          <input type="number" id="yearMaxInput" min="1993" step="1" placeholder="Max">
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Ownership</h3>
+        <div class="chip-row" id="ownershipChips">
+          <button type="button" class="chip" data-own="foil">Foil</button>
+          <button type="button" class="chip" data-own="nonfoil">Non-foil</button>
+        </div>
+      </div>
+
+      <button type="button" id="clearFiltersBtn" class="clear-filters-btn">Clear all filters</button>
+    </aside>
+
+    <section class="results-area">
+      <div class="results-toolbar">
+        <div class="sort-wrap">
+          <label for="sortSelect">Sort by</label>
+          <select id="sortSelect">
+            <option value="name">Name</option>
+            <option value="cmc">Mana value</option>
+            <option value="power">Power</option>
+            <option value="toughness">Toughness</option>
+            <option value="color">Color</option>
+            <option value="rarity">Rarity</option>
+            <option value="set">Set</option>
+            <option value="released">Release date</option>
+            <option value="artist">Artist</option>
+            <option value="quantity">Quantity owned</option>
+            <option value="price">Price</option>
+          </select>
+          <button type="button" id="sortDirBtn" class="sort-dir-btn" title="Toggle ascending/descending">Asc ↑</button>
+        </div>
+        <div class="deck-status-wrap">
+          <span class="fg-hint">Deck status</span>
+          <div class="chip-row" id="deckStatusChips">
+            <button type="button" class="chip" data-deckstatus="indeck">In a Deck</button>
+            <button type="button" class="chip" data-deckstatus="notindeck">Not in a Deck</button>
+          </div>
+        </div>
+        <div class="format-legality-wrap">
+          <label for="formatLegalitySelect" class="fg-hint">Legal in</label>
+          <select id="formatLegalitySelect">
+            <option value="">— none —</option>
+            <option value="standard">Standard</option>
+            <option value="pioneer">Pioneer</option>
+            <option value="modern">Modern</option>
+            <option value="legacy">Legacy</option>
+            <option value="vintage">Vintage</option>
+            <option value="commander">Commander</option>
+            <option value="pauper">Pauper</option>
+          </select>
+        </div>
+        <div class="view-toggle-wrap">
+          <button type="button" id="viewGridBtn" class="view-toggle-btn active">Grid</button>
+          <button type="button" id="viewTableBtn" class="view-toggle-btn">Table</button>
+        </div>
+        <button type="button" id="commanderRecsBtn" class="ai-settings-btn" title="Pick a commander and get owned-card recommendations">🪄 Commander Recs</button>
+        <div class="pagination-top" id="paginationTop"></div>
+      </div>
+
+      <div id="resultsGrid" class="results-grid"></div>
+      <div id="resultsTableWrap" class="results-table-wrap hidden">
+        <table class="results-table" id="resultsTable">
+          <thead>
+            <tr>
+              <th data-sort="name">Name</th>
+              <th data-sort="cmc">MV</th>
+              <th>Color</th>
+              <th data-sort="set">Set</th>
+              <th data-sort="rarity">Rarity</th>
+              <th data-sort="quantity">Qty</th>
+              <th data-sort="price">Price</th>
+              <th>Legal</th>
+            </tr>
+          </thead>
+          <tbody id="resultsTableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state hidden">No cards match your search.</div>
+      <div id="loadingState" class="loading-state hidden">Loading…</div>
+
+      <div class="pagination" id="paginationBottom"></div>
+    </section>
+  </div>
+</main>
+
+<!-- CARD MODAL -->
+<div id="cardModal" class="modal hidden">
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+  <div class="modal-content">
+    <button class="modal-close" id="modalClose">✕</button>
+    <div class="modal-body">
+      <div class="modal-image-col">
+        <img id="modalImage" class="modal-image" src="" alt="">
+        <div id="modalVersions" class="modal-versions hidden"></div>
+        <button type="button" id="modalAddToScratchpad" class="modal-add-btn">+ Add to Deck Builder</button>
+        <button type="button" id="modalSetCommander" class="modal-set-commander-btn hidden">👑 Set as Commander</button>
+      </div>
+      <div class="modal-details">
+        <h2 id="modalName"></h2>
+        <div id="modalManaCost" class="modal-mana"></div>
+        <div id="modalTypeLine" class="modal-type"></div>
+        <p id="modalOracleText" class="modal-oracle"></p>
+        <p id="modalPowerToughness" class="modal-pt"></p>
+        <div class="modal-set-row">
+          <span id="modalSet"></span>
+          <span id="modalRarity"></span>
+        </div>
+        <div class="modal-owned">
+          <strong>You own:</strong> <span id="modalOwned"></span>
+        </div>
+        <div class="modal-locations" id="modalLocationsRow">
+          <strong>Stored in:</strong> <span id="modalLocations"></span>
+        </div>
+        <div class="modal-price" id="modalPrice"></div>
+        <div class="modal-legality hidden" id="modalLegalityRow"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMANDER PICKER MODAL -->
+<div id="commanderPickerModal" class="modal hidden">
+  <div class="modal-backdrop" id="commanderPickerBackdrop"></div>
+  <div class="modal-content ai-settings-content">
+    <button class="modal-close" id="commanderPickerClose">✕</button>
+    <h2>Pick your commander</h2>
+    <p class="fg-hint">Start typing — this searches your owned legendary creatures and planeswalkers. Recommendations are cards from your own collection that are color-identity legal and mechanically correlate with your commander's playstyle.</p>
+    <label class="ai-settings-label" for="commanderPickerInput">Commander</label>
+    <input type="text" id="commanderPickerInput" list="commanderPickerOptions" placeholder="Start typing a card name…">
+    <datalist id="commanderPickerOptions"></datalist>
+    <div class="ai-settings-actions">
+      <button type="button" id="commanderPickerSubmitBtn">Find recommendations</button>
+    </div>
+    <div id="commanderPickerStatus" class="ai-settings-status"></div>
+  </div>
+</div>
+
+<!-- COMMANDER RECOMMENDATIONS MODAL -->
+<div id="commanderRecsModal" class="modal hidden">
+  <div class="modal-backdrop" id="commanderRecsBackdrop"></div>
+  <div class="modal-content ai-settings-content cmdr-recs-content">
+    <button class="modal-close" id="commanderRecsClose">✕</button>
+    <h2 id="commanderRecsTitle">Recommendations</h2>
+    <p class="fg-hint">Ranked instantly from local heuristics (shared creature types, playstyle/mechanic tags, keywords), then boosted using EDHREC's actual most-played cards for this commander once that loads (green badge = % of EDHREC decks running it). Optionally refine further with AI below.</p>
+    <div class="deck-grade-actions">
+      <button type="button" id="commanderRecsRefineBtn">🤖 Refine with AI</button>
+      <span id="commanderRecsStatus" class="deck-grade-status"></span>
+    </div>
+    <div id="commanderRecsList" class="cmdr-recs-list"></div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL (single entry point for every app setting) -->
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-backdrop" id="settingsBackdrop"></div>
+  <div class="modal-content ai-settings-content">
+    <button class="modal-close" id="settingsClose">✕</button>
+    <h2>Settings</h2>
+
+    <h3 class="settings-section-heading">Appearance</h3>
+    <label class="theme-toggle-row" for="manaboxThemeToggle">
+      <input type="checkbox" id="manaboxThemeToggle">
+      <span>
+        <strong>ManaBox-style theme</strong>
+        <span class="fg-hint">Switch to a dark, ManaBox-inspired color palette across the whole app. Off by default.</span>
+      </span>
+    </label>
+
+    <h3 class="settings-section-heading">AI Deck Grading</h3>
+    <p class="fg-hint">Paste your own Anthropic API key to let Scrybox grade a deck, or get commander recommendations, with one click. This is a fully client-side app — your key is saved only in this browser's local storage and sent directly from your browser straight to Anthropic's API (never through any Scrybox server, because there isn't one). That does mean the key is visible in your browser's network requests, same as any other local/personal tool that calls an API directly — don't use a key you wouldn't want exposed on this machine.</p>
+    <label class="ai-settings-label" for="aiApiKeyInput">API key</label>
+    <input type="password" id="aiApiKeyInput" placeholder="sk-ant-...">
+    <label class="ai-settings-label" for="aiModelSelect">Model</label>
+    <select id="aiModelSelect">
+      <option value="claude-sonnet-5">Claude Sonnet 5 (recommended)</option>
+      <option value="claude-opus-5">Claude Opus 5 (highest quality, slower/pricier)</option>
+      <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (fastest/cheapest)</option>
+      <option value="claude-fable-5">Claude Fable 5</option>
+    </select>
+    <div class="ai-settings-actions">
+      <button type="button" id="aiSettingsSaveBtn">Save</button>
+      <button type="button" id="aiSettingsClearBtn" class="ai-settings-clear">Clear key</button>
+    </div>
+    <div id="aiSettingsStatus" class="ai-settings-status"></div>
+    <p class="fg-hint">Don't want to save a key at all? Every deck also has a <strong>Copy prompt for Claude</strong> button — no key needed, just paste the result into any Claude conversation yourself.</p>
+  </div>
+</div>
+
+<!-- PULL PICKER MODAL (choose which binder/finish a scratchpad card is pulled from) -->
+<div id="pullPickerModal" class="modal hidden">
+  <div class="modal-backdrop" id="pullPickerBackdrop"></div>
+  <div class="modal-content pull-picker-content">
+    <button class="modal-close" id="pullPickerClose">✕</button>
+    <h2>Pull <span id="pullPickerCardName"></span> from where?</h2>
+    <p class="fg-hint">This card lives in more than one place — pick which copy the scratchpad takes.</p>
+    <div id="pullPickerList" class="pull-picker-list"></div>
+  </div>
+</div>
+
+<!-- SYNTAX HELP MODAL -->
+<div id="syntaxModal" class="modal hidden">
+  <div class="modal-backdrop" id="syntaxModalBackdrop"></div>
+  <div class="modal-content syntax-modal-content">
+    <button class="modal-close" id="syntaxModalClose">✕</button>
+    <h2>Search syntax</h2>
+    <table class="syntax-table">
+      <tr><td><code>c:rg</code> / <code>color:rg</code></td><td>Cards with red and green in their colors</td></tr>
+      <tr><td><code>id:bant</code> / <code>identity:bant</code></td><td>Color identity is within white/blue/green</td></tr>
+      <tr><td><code>t:creature</code> / <code>type:creature</code></td><td>Type line contains "creature"</td></tr>
+      <tr><td><code>o:"draw a card"</code> / <code>oracle:...</code></td><td>Oracle text contains the phrase</td></tr>
+      <tr><td><code>mv:3</code> / <code>mv>=4</code></td><td>Mana value comparisons (also <code>cmc</code>)</td></tr>
+      <tr><td><code>pow>=4</code> / <code>tou<=2</code></td><td>Power / toughness comparisons</td></tr>
+      <tr><td><code>loy>=5</code> / <code>loyalty>=5</code></td><td>Starting loyalty comparisons (planeswalkers)</td></tr>
+      <tr><td><code>r:mythic</code> / <code>rarity:mythic</code></td><td>Rarity</td></tr>
+      <tr><td><code>set:mh3</code> / <code>s:</code> / <code>e:</code> / <code>edition:</code></td><td>Set code</td></tr>
+      <tr><td><code>number:161</code> / <code>cn:161</code></td><td>Collector number</td></tr>
+      <tr><td><code>year:1993</code> / <code>year<=2000</code></td><td>Release year comparisons</td></tr>
+      <tr><td><code>date>=2020-01-01</code></td><td>Release date comparisons</td></tr>
+      <tr><td><code>a:"jason chan"</code> / <code>artist:</code></td><td>Illustrator name</td></tr>
+      <tr><td><code>ft:"draw a card"</code> / <code>flavor:</code></td><td>Flavor text contains the phrase</td></tr>
+      <tr><td><code>wm:orzhov</code> / <code>watermark:</code></td><td>Watermark</td></tr>
+      <tr><td><code>border:black</code></td><td>Border color</td></tr>
+      <tr><td><code>frame:2015</code></td><td>Card frame style/year</td></tr>
+      <tr><td><code>lang:ja</code> / <code>l:ja</code></td><td>Printed language</td></tr>
+      <tr><td><code>m:{2}{r}</code> / <code>mana:</code></td><td>Exact mana cost string</td></tr>
+      <tr><td><code>produces:wg</code></td><td>Can produce white and green mana</td></tr>
+      <tr><td><code>f:modern</code> / <code>format:modern</code></td><td>Legal in a format</td></tr>
+      <tr><td><code>banned:standard</code></td><td>Currently banned in a format</td></tr>
+      <tr><td><code>restricted:vintage</code></td><td>Currently restricted in a format</td></tr>
+      <tr><td><code>usd>=50</code> / <code>eur<=5</code></td><td>Price comparisons</td></tr>
+      <tr><td><code>tag:removal</code></td><td>Functional tag: removal, boardwipe, cardadvantage, protection</td></tr>
+      <tr><td><code>kw:deathtouch</code> / <code>keyword:</code></td><td>Has this exact keyword ability (Scryfall's keywords list)</td></tr>
+      <tr><td><code>is:foil</code> / <code>is:nonfoil</code></td><td>Ownership condition</td></tr>
+      <tr><td><code>is:deck</code></td><td>Currently placed in a registered deck</td></tr>
+      <tr><td><code>is:commander</code></td><td>Legendary creature</td></tr>
+      <tr><td><code>is:split</code> / <code>flip</code> / <code>transform</code> / <code>meld</code> / <code>mdfc</code> / <code>dfc</code></td><td>Layout checks</td></tr>
+      <tr><td><code>is:permanent</code> / <code>is:spell</code></td><td>Permanent vs. instant/sorcery</td></tr>
+      <tr><td><code>is:promo</code> / <code>reprint</code> / <code>fullart</code> / <code>textless</code> / <code>reserved</code> / <code>digital</code></td><td>Printing flags</td></tr>
+      <tr><td><code>is:hybrid</code> / <code>is:phyrexian</code></td><td>Mana cost symbol checks</td></tr>
+      <tr><td><code>is:vanilla</code></td><td>Creature with no rules text or keywords</td></tr>
+      <tr><td><code>is:leveler</code></td><td>Has "Level up"</td></tr>
+      <tr><td><code>-t:land</code></td><td>Exclude a term with a leading minus (works on any operator)</td></tr>
+      <tr><td><code>art:sword</code> / <code>atag:</code> / <code>arttag:</code></td><td>Illustration tag — queries Scryfall live (needs internet)</td></tr>
+      <tr><td><code>otag:removal</code> / <code>function:removal</code></td><td>Scryfall's own oracle/functional tags — queries Scryfall live (needs internet)</td></tr>
+    </table>
+    <p class="syntax-note">Typed search terms and the filters on the left both apply at the same time — they're combined with AND.</p>
+    <p class="syntax-note"><code>art:</code>, <code>atag:</code>, <code>arttag:</code>, <code>otag:</code>, and <code>function:</code> aren't stored locally, so using any of them sends your whole query to Scryfall's live search and intersects the results with your collection — this needs an internet connection and can take a moment for very broad tags.</p>
+  </div>
+</div>
+
+<!-- DECK BUILDER SCREEN -->
+<section id="deckBuilderScreen" class="deck-builder-screen hidden">
+  <div class="deck-builder-inner">
+    <h1>Deck Builder</h1>
+    <p class="fg-hint">Build a list while you browse (the + on any card adds it here), then export it for Archidekt, Moxfield, or Arena.</p>
+
+    <div class="deck-commander-row">
+      <span class="deck-commander-label">Commander:</span>
+      <span id="scratchCommanderDisplay" class="deck-commander-value is-unset">(none — set one to lock search to its colors and get a build checklist)</span>
+      <button type="button" id="scratchSetCommanderBtn">Set commander</button>
+    </div>
+    <div id="scratchSetCommanderRow" class="set-commander-row hidden">
+      <input type="text" id="scratchCommanderInput" list="scratchCommanderOptions" placeholder="Start typing a card name…">
+      <datalist id="scratchCommanderOptions"></datalist>
+      <button type="button" id="scratchCommanderSaveBtn">Save</button>
+      <button type="button" id="scratchCommanderClearBtn">Clear</button>
+      <button type="button" id="scratchCommanderCancelBtn">Cancel</button>
+    </div>
+    <div id="deckBuilderPanel" class="deck-builder-panel hidden">
+      <p class="fg-hint">Search is locked to this commander's color identity. Click a tag to jump to matching owned cards:</p>
+      <div id="deckBuilderTags" class="deck-builder-tags"></div>
+      <div id="deckBuilderChecklist" class="deck-builder-checklist"></div>
+    </div>
+
+    <div id="commanderSynergiesPanel" class="commander-synergies-panel hidden">
+      <h3 class="deck-tools-heading">Commander Synergies</h3>
+      <p class="fg-hint">Synergy themes detected on your commander — each tab lists your other owned cards that share the theme.</p>
+      <div class="deck-grade-actions">
+        <button type="button" id="commanderSynergiesRefineBtn" class="hidden">🔮 Suggest tags with AI</button>
+        <button type="button" id="commanderSynergiesResetBtn" class="hidden">↺ Reset to default tags</button>
+        <span id="commanderSynergiesStatus" class="deck-grade-status"></span>
+      </div>
+      <div id="commanderSynergiesTabs" class="commander-synergies-tabs"></div>
+      <div id="commanderSynergiesContent" class="commander-synergies-content"></div>
+    </div>
+
+    <div class="ghost-add-row">
+      <input type="text" id="ghostNameInput" placeholder="Add a card you don't own…">
+      <button type="button" id="ghostAddBtn">Add</button>
+    </div>
+
+    <details class="decklist-import">
+      <summary>Import a decklist</summary>
+      <p class="fg-hint">Paste a decklist (one card per line, "1 Card Name" or "1x Card Name"). Owned cards get pulled in automatically; anything you don't own is added as a ghost card.</p>
+      <textarea id="decklistImportInput" rows="6" placeholder="1 Sol Ring&#10;1 Lightning Bolt&#10;..."></textarea>
+      <button type="button" id="decklistImportBtn">Import</button>
+      <div id="decklistImportResult" class="decklist-import-result"></div>
+    </details>
+
+    <div id="scratchpadGrid" class="results-grid scratchpad-grid"></div>
+    <div id="scratchpadEmpty" class="empty-state scratchpad-empty">Nothing here yet — click the + on any card, or add one above.</div>
+
+    <div class="scratchpad-actions">
+      <button type="button" id="scratchpadCopyBtn">Copy list</button>
+      <button type="button" id="scratchpadDownloadBtn">Download .txt</button>
+      <button type="button" id="scratchpadClearBtn" class="scratchpad-clear">Clear all</button>
+    </div>
+    <div class="scratchpad-actions">
+      <button type="button" id="scratchpadCopyPullBtn">Copy pull list</button>
+      <button type="button" id="scratchpadDownloadPullBtn">Download pull list</button>
+    </div>
+    <p class="fg-hint">"Copy/Download list" is plain Archidekt/Moxfield/Arena format. "Pull list" groups the same cards by which binder/deck to physically take them from — for after you've built the deck online.</p>
+    <div id="scratchpadStatus" class="scratchpad-status"></div>
+  </div>
+</section>
+
+<!-- UNDO TOAST -->
+<div id="undoToast" class="undo-toast hidden">
+  <span id="undoToastMessage"></span>
+  <button type="button" id="undoToastBtn">Undo</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<script src="app.js?v=22"></script>
+</body>
+</html>
