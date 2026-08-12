@@ -1,9 +1,0 @@
-# Local Windows launcher scripts — only used for double-click-to-open on
-# this machine, not needed once the site is hosted on GitHub Pages.
-Start Scrybox.bat
-Start Scrybox (debug).bat
-Start Scrybox.vbs
-
-# OS/editor cruft
-.DS_Store
-Thumbs.db
