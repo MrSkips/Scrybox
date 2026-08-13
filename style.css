@@ -1,0 +1,2049 @@
+/* =======================================================================
+   Scrybox — design system
+   An MTG-flavored visual language: Beleren Bold (the real Magic card-title
+   typeface, loaded via Google Fonts in index.html) for headings, a warm
+   parchment-tinted neutral base, mana-blue as the primary accent, gold for
+   commander-related controls, and real rarity-gem colors (common/uncommon/
+   rare/mythic) used the way Scryfall itself uses them — something the app
+   was styled after but, until this pass, never actually implemented.
+   ======================================================================= */
+
+:root {
+  /* Brand */
+  --navy: #171922;
+  --navy-2: #20222e;
+  --blue-accent: #2f5fa8;
+  --blue-accent-hover: #244a86;
+  --gold-accent: #b8892c;
+  --gold-accent-hover: #9c7325;
+  --ai-accent: #0e8f82;
+  --ai-accent-hover: #0b756a;
+  --danger: #b3261e;
+  --danger-hover: #8f1e18;
+  --success: #2e7d32;
+
+  /* Surface */
+  --bg: #f6f4ef;
+  --card-bg: #ffffff;
+  --border: #e4e0d6;
+  --chip-bg: #efece3;
+  --chip-active: var(--blue-accent);
+  --track-bg: #e6e2d6;
+  --text: #201f1c;
+  --text-muted: #6f6b60;
+
+  /* Rarity gems — the actual color convention Magic itself uses */
+  --common: #4a4a4a;
+  --uncommon: #6f93ac;
+  --rare: #b8892c;
+  --mythic: #d1521f;
+
+  /* Scale */
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-pill: 999px;
+  --shadow-sm: 0 1px 3px rgba(20, 18, 10, 0.08);
+  --shadow-md: 0 6px 18px rgba(20, 18, 10, 0.12);
+  --shadow-lg: 0 10px 34px rgba(20, 18, 10, 0.18);
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 0.12s;
+  --dur-base: 0.2s;
+  --dur-slow: 0.4s;
+
+  --font-display: 'Beleren Bold', Georgia, 'Times New Roman', serif;
+  --font-body: 'Source Sans Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-body);
+}
+
+/* Dark ("Grimoire") theme — the default look. Not a tinted variant of the
+   light theme: near-black surfaces, an ember-gold primary accent instead
+   of blue (blue becomes the secondary/link accent), and enough contrast
+   between surface layers (--bg / --card-bg / --navy) that panels visibly
+   sit on top of each other rather than blending into one flat dark mass. */
+html[data-theme="manabox"] {
+  --navy: #060609;
+  --navy-2: #131320;
+  --blue-accent: #6c8fd6;
+  --blue-accent-hover: #86a3e2;
+  --gold-accent: #d79a3c;
+  --gold-accent-hover: #eaad4d;
+  --ai-accent: #2dd4bf;
+  --ai-accent-hover: #22b8a4;
+  --bg: #0a0a0f;
+  --card-bg: #17161f;
+  --border: #322c22;
+  --chip-bg: #201d29;
+  --chip-active: var(--gold-accent);
+  --track-bg: #211f2b;
+  --text: #ece6da;
+  --text-muted: #9a917f;
+  --common: #b7bcc9;
+  --uncommon: #8fbde0;
+  --rare: #eaad4d;
+  --mythic: #ff8a52;
+}
+html[data-theme="manabox"] body { background: var(--bg); color: var(--text); }
+html[data-theme="manabox"] .folder-tile,
+html[data-theme="manabox"] .card-tile img,
+html[data-theme="manabox"] .stats-card,
+html[data-theme="manabox"] .modal-content,
+html[data-theme="manabox"] .upload-card {
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+html[data-theme="manabox"] input,
+html[data-theme="manabox"] select,
+html[data-theme="manabox"] textarea {
+  background: var(--card-bg);
+  color: var(--text);
+  border-color: var(--border);
+}
+html[data-theme="manabox"] .total-value-info,
+html[data-theme="manabox"] .stat-value {
+  color: var(--gold-accent);
+}
+html[data-theme="manabox"] .search-bar-wrap { background: var(--card-bg); box-shadow: 0 0 0 1px var(--border), var(--shadow-md); }
+html[data-theme="manabox"] .search-bar { color: var(--text); }
+html[data-theme="manabox"] .search-bar::placeholder { color: var(--text-muted); }
+html[data-theme="manabox"] .dropzone { border-color: #3a3226; }
+html[data-theme="manabox"] .dropzone:hover, html[data-theme="manabox"] .dropzone.dragover { background: rgba(215, 154, 60, 0.08); }
+/* Card/panel surfaces get a visible ember-lit edge instead of disappearing
+   into the near-black background — this is what makes a dark theme feel
+   like distinct objects in a dim room rather than one flat void. */
+html[data-theme="manabox"] .card-tile img,
+html[data-theme="manabox"] .modal-image,
+html[data-theme="manabox"] .folder-tile-image {
+  outline: 1px solid rgba(215, 154, 60, 0.18);
+}
+html[data-theme="manabox"] .chip,
+html[data-theme="manabox"] .pull-picker-option,
+html[data-theme="manabox"] .cmdr-rec-row,
+html[data-theme="manabox"] .results-table th {
+  background: var(--chip-bg);
+}
+html[data-theme="manabox"] .pull-picker-option { border-color: var(--border); color: var(--text); }
+html[data-theme="manabox"] .pull-picker-option:hover { background: #241f30; border-color: var(--gold-accent); }
+html[data-theme="manabox"] .clear-filters-btn,
+html[data-theme="manabox"] .backup-btn,
+html[data-theme="manabox"] .reset-btn,
+html[data-theme="manabox"] .sort-dir-btn,
+html[data-theme="manabox"] .view-toggle-btn,
+html[data-theme="manabox"] .pagination button,
+html[data-theme="manabox"] .pagination-top button,
+html[data-theme="manabox"] .scratchpad-actions button {
+  background: var(--card-bg);
+  color: var(--text);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+html, body {
+  margin: 0;
+  padding: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+}
+/* A quiet parchment vignette + fine grain instead of a flat fill — this is
+   the single biggest reason a "restyled" page still reads as plain: solid
+   background colors have no texture at all. Built entirely from layered
+   gradients so there's no image asset to ship. */
+body {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 12% -10%, rgba(184, 137, 44, 0.10), transparent 60%),
+    radial-gradient(ellipse 900px 600px at 105% 10%, rgba(47, 95, 168, 0.08), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.012) 0px, rgba(0,0,0,0.012) 1px, transparent 1px, transparent 3px);
+  background-attachment: fixed;
+}
+html[data-theme="manabox"] body {
+  background-image:
+    radial-gradient(ellipse 700px 420px at 10% -8%, rgba(215, 154, 60, 0.16), transparent 58%),
+    radial-gradient(ellipse 600px 500px at 100% 8%, rgba(108, 143, 214, 0.10), transparent 55%),
+    radial-gradient(ellipse 800px 600px at 50% 115%, rgba(215, 154, 60, 0.07), transparent 60%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,0.014) 0px, rgba(255,255,255,0.014) 1px, transparent 1px, transparent 3px);
+  background-attachment: fixed;
+}
+
+/* Respect reduced-motion preferences globally — every animation/transition
+   in this file collapses to near-instant rather than being stripped
+   entirely, so state changes are still visible, just not animated. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.hidden { display: none !important; }
+
+/* Every screen's page-title heading gets a matching treatment — a short
+   gold underline rule, wide tracking, the display face at real size — so
+   headings read as a deliberate identity rather than "same layout, new
+   font name." */
+.upload-card h1,
+.folder-screen-inner h1,
+.stats-screen h1,
+.deck-builder-screen h1 {
+  position: relative;
+  padding-bottom: 14px;
+  letter-spacing: 0.4px;
+}
+.upload-card h1::after,
+.folder-screen-inner h1::after,
+.stats-screen h1::after,
+.deck-builder-screen h1::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 64px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold-accent), transparent);
+  border-radius: 2px;
+}
+.upload-card h1::after { left: 50%; transform: translateX(-50%); }
+
+/* Wraps every screen once a collection is loaded (the upload screen is a
+   sibling, shown/hidden via .hidden on each). No layout of its own needed
+   beyond providing the min-height so the topbar never gets a short page
+   flash of unstyled body background beneath it. */
+.app { min-height: calc(100vh - 65px); background: var(--bg); }
+
+a { color: var(--blue-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- KEYFRAMES ---------- */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translate(-50%, 14px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes navUnderline {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+/* Staggered wave entrance for grid tiles — a flat 12-step ramp so the
+   first couple of rows visibly cascade in, then it plateaus rather than
+   generating a rule per possible index (a full page can be 60 cards). */
+.results-grid .card-tile,
+.scratchpad-grid .scratch-tile,
+.folder-grid .folder-tile,
+.cmdr-syn-grid .cmdr-syn-tile {
+  animation: fadeInUp var(--dur-slow) var(--ease) both;
+}
+.results-grid .card-tile:nth-child(1), .scratchpad-grid .scratch-tile:nth-child(1), .folder-grid .folder-tile:nth-child(1), .cmdr-syn-grid .cmdr-syn-tile:nth-child(1) { animation-delay: 0ms; }
+.results-grid .card-tile:nth-child(2), .scratchpad-grid .scratch-tile:nth-child(2), .folder-grid .folder-tile:nth-child(2), .cmdr-syn-grid .cmdr-syn-tile:nth-child(2) { animation-delay: 20ms; }
+.results-grid .card-tile:nth-child(3), .scratchpad-grid .scratch-tile:nth-child(3), .folder-grid .folder-tile:nth-child(3), .cmdr-syn-grid .cmdr-syn-tile:nth-child(3) { animation-delay: 40ms; }
+.results-grid .card-tile:nth-child(4), .scratchpad-grid .scratch-tile:nth-child(4), .folder-grid .folder-tile:nth-child(4), .cmdr-syn-grid .cmdr-syn-tile:nth-child(4) { animation-delay: 60ms; }
+.results-grid .card-tile:nth-child(5), .scratchpad-grid .scratch-tile:nth-child(5), .folder-grid .folder-tile:nth-child(5), .cmdr-syn-grid .cmdr-syn-tile:nth-child(5) { animation-delay: 80ms; }
+.results-grid .card-tile:nth-child(6), .scratchpad-grid .scratch-tile:nth-child(6), .folder-grid .folder-tile:nth-child(6), .cmdr-syn-grid .cmdr-syn-tile:nth-child(6) { animation-delay: 100ms; }
+.results-grid .card-tile:nth-child(7), .scratchpad-grid .scratch-tile:nth-child(7), .folder-grid .folder-tile:nth-child(7) { animation-delay: 120ms; }
+.results-grid .card-tile:nth-child(8), .scratchpad-grid .scratch-tile:nth-child(8), .folder-grid .folder-tile:nth-child(8) { animation-delay: 140ms; }
+.results-grid .card-tile:nth-child(9), .scratchpad-grid .scratch-tile:nth-child(9), .folder-grid .folder-tile:nth-child(9) { animation-delay: 160ms; }
+.results-grid .card-tile:nth-child(10), .scratchpad-grid .scratch-tile:nth-child(10), .folder-grid .folder-tile:nth-child(10) { animation-delay: 180ms; }
+.results-grid .card-tile:nth-child(11), .scratchpad-grid .scratch-tile:nth-child(11), .folder-grid .folder-tile:nth-child(11) { animation-delay: 200ms; }
+.results-grid .card-tile:nth-child(12), .scratchpad-grid .scratch-tile:nth-child(12), .folder-grid .folder-tile:nth-child(12) { animation-delay: 220ms; }
+.results-table tbody tr { animation: fadeIn var(--dur-base) var(--ease) both; }
+
+/* ---------- TOP BAR ---------- */
+.topbar {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), transparent 40%),
+    linear-gradient(135deg, var(--navy-2) 0%, var(--navy) 55%, #12131c 100%);
+  color: #fff;
+  border-bottom: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--gold-accent) 0%, var(--blue-accent) 45%, var(--gold-accent) 100%) 1;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.35);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+.topbar-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.logo {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  letter-spacing: 0.8px;
+  color: #fff;
+  text-decoration: none;
+  flex-shrink: 0;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.5), 0 0 18px rgba(184, 137, 44, 0.35);
+  transition: opacity var(--dur-fast) var(--ease), text-shadow var(--dur-base) var(--ease);
+}
+.logo:hover { text-decoration: none; opacity: 0.9; text-shadow: 0 1px 0 rgba(0,0,0,0.5), 0 0 26px rgba(184, 137, 44, 0.55); }
+.logo-main { color: #fff; }
+.logo-accent { color: var(--gold-accent); }
+
+.topnav { display: flex; gap: 22px; flex: 1; flex-wrap: wrap; row-gap: 4px; }
+.topnav a {
+  position: relative;
+  color: #c7ccd6;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 6px 0;
+  transition: color var(--dur-fast) var(--ease);
+}
+.topnav a::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--blue-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease);
+}
+.topnav a:hover { color: #fff; text-decoration: none; }
+.topnav a:hover::after { transform: scaleX(1); }
+.topnav a.active { color: #fff; }
+.topnav a.active::after { transform: scaleX(1); }
+
+.topbar-right { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
+.topbar-info { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.collection-count { color: #8b93a3; font-size: 13px; }
+.last-synced { color: #616b7d; font-size: 11px; }
+.total-value-info { color: #7fae83; font-size: 11px; opacity: 0.9; font-weight: 600; }
+
+/* ---------- SHARED BUTTON LOOK (header pill buttons) ---------- */
+.ai-settings-btn, .scratchpad-toggle, .export-results-btn {
+  background: none;
+  border: 1px solid #4a5163;
+  color: #c7ccd6;
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.ai-settings-btn:hover, .scratchpad-toggle:hover, .export-results-btn:hover { border-color: #8fb8e8; color: #fff; }
+.ai-settings-btn:active, .scratchpad-toggle:active, .export-results-btn:active { transform: scale(0.97); }
+
+/* ---------- UPLOAD SCREEN ---------- */
+.upload-screen {
+  min-height: calc(100vh - 65px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--navy) 0%, var(--navy) 220px, var(--bg) 220px);
+  padding: 40px 20px;
+}
+.upload-card {
+  background: var(--card-bg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  max-width: 620px;
+  width: 100%;
+  padding: 40px;
+  text-align: center;
+  animation: fadeInUp var(--dur-slow) var(--ease) both;
+}
+.upload-card h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 28px;
+  margin: 0 0 12px;
+}
+.upload-sub {
+  color: var(--text-muted);
+  font-size: 15px;
+  line-height: 1.5;
+  margin-bottom: 28px;
+}
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 2px dashed #b9c2d0;
+  border-radius: var(--radius-md);
+  padding: 36px 20px;
+  cursor: pointer;
+  transition: border-color var(--dur-base) var(--ease), background var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+}
+.dropzone:hover {
+  border-color: var(--blue-accent);
+  background: #eef4fb;
+  transform: translateY(-2px);
+}
+.dropzone.dragover {
+  border-color: var(--blue-accent);
+  background: #eef4fb;
+  transform: scale(1.01);
+}
+.dropzone-icon { font-size: 30px; color: var(--blue-accent); transition: transform var(--dur-base) var(--ease); }
+.dropzone:hover .dropzone-icon { transform: translateY(-3px); }
+.dropzone-text { color: var(--text-muted); font-size: 14px; }
+.upload-status { margin-top: 18px; font-size: 14px; color: var(--text-muted); min-height: 20px; }
+.upload-status.error { color: var(--danger); }
+.upload-help { margin-top: 24px; text-align: left; font-size: 13px; color: var(--text-muted); }
+.upload-help summary { cursor: pointer; color: var(--blue-accent); font-weight: 600; }
+
+.reset-row { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); text-align: left; }
+.reset-btn {
+  border: 1px solid var(--danger);
+  background: #fff;
+  color: var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.reset-btn:hover { background: var(--danger); color: #fff; }
+.reset-hint { margin-top: 8px; margin-bottom: 0; }
+
+/* ---------- SCOPE BANNER ---------- */
+.scope-banner {
+  background: #eaf2fb;
+  border-bottom: 1px solid #cddcee;
+  padding: 10px 24px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: fadeIn var(--dur-base) var(--ease) both;
+}
+html[data-theme="manabox"] .scope-banner { background: rgba(139,92,246,0.12); border-bottom-color: var(--border); }
+.scope-banner strong { color: var(--text); }
+.scope-banner button {
+  border: 1px solid var(--blue-accent);
+  background: #fff;
+  color: var(--blue-accent);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.scope-banner button:hover { background: var(--blue-accent); color: #fff; }
+
+/* ---------- VALUE TOOLBAR ---------- */
+.value-toolbar {
+  background: #f2f6ea;
+  border-bottom: 1px solid #dde8cc;
+  padding: 10px 24px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+html[data-theme="manabox"] .value-toolbar { background: rgba(46,125,50,0.12); border-bottom-color: var(--border); }
+.value-input-prefix { color: var(--text-muted); }
+.value-toolbar input[type="number"] {
+  width: 90px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.value-total { margin-left: auto; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ---------- DECKS / BINDERS FOLDER SCREEN ---------- */
+.folder-screen {
+  background: var(--bg);
+  min-height: calc(100vh - 65px);
+  padding: 32px 24px 60px;
+}
+.folder-screen-inner { max-width: 1400px; margin: 0 auto; }
+.folder-screen-inner h1 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 26px;
+  margin: 0 0 6px;
+}
+.folder-screen-sub { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+
+.folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
+}
+.folder-tile {
+  cursor: pointer;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: transform var(--dur-base) var(--ease), box-shadow var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease);
+}
+.folder-tile:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); border-color: var(--blue-accent); }
+.folder-tile-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+  background: linear-gradient(135deg, var(--navy), var(--navy-2));
+  display: block;
+}
+.folder-tile-body { padding: 12px 14px; }
+.folder-tile-name {
+  font-weight: 700;
+  font-size: 14.5px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.folder-tile-meta { font-size: 12.5px; color: var(--text-muted); }
+.folder-tile-badge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: var(--chip-bg);
+  color: var(--text-muted);
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+}
+.folder-exclude-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.folder-exclude-row input { cursor: pointer; }
+
+/* ---------- SEARCH HERO ---------- */
+.search-hero {
+  background: var(--navy-2);
+  padding: 22px 24px;
+}
+.search-hero-inner { max-width: 1400px; margin: 0 auto; }
+.search-bar-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: box-shadow var(--dur-base) var(--ease);
+}
+.search-bar-wrap:focus-within { box-shadow: 0 0 0 3px rgba(47, 95, 168, 0.35), var(--shadow-md); }
+html[data-theme="manabox"] .search-bar-wrap:focus-within { box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.4), var(--shadow-md); }
+.search-icon {
+  position: absolute;
+  left: 14px;
+  color: #8b93a3;
+  font-size: 18px;
+}
+.search-bar {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 14px 40px 14px 40px;
+  font-size: 16px;
+  font-family: inherit;
+  background: transparent;
+}
+.search-clear {
+  background: none;
+  border: none;
+  color: #8b93a3;
+  cursor: pointer;
+  font-size: 15px;
+  padding: 0 14px;
+  transition: color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.search-clear:hover { color: #333; transform: rotate(90deg); }
+.search-meta {
+  margin-top: 10px;
+  color: #9aa3b5;
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.search-meta a { color: #8fb8e8; transition: color var(--dur-fast) var(--ease); }
+.search-meta .sep { color: #4a5163; }
+.sync-status { color: #8fb8e8; font-style: italic; }
+.preset-row { display: flex; gap: 6px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+.preset-row select {
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid #4a5163;
+  background: var(--navy-2);
+  color: #c7ccd6;
+  font-size: 12.5px;
+  font-family: inherit;
+}
+.preset-row button {
+  background: none;
+  border: 1px solid #4a5163;
+  color: #c7ccd6;
+  border-radius: var(--radius-pill);
+  padding: 3px 11px;
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.preset-row button:hover { border-color: #8fb8e8; color: #fff; }
+
+/* ---------- LAYOUT ---------- */
+.layout {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  gap: 28px;
+  padding: 24px;
+  align-items: flex-start;
+}
+
+/* ---------- FILTERS ---------- */
+.filters {
+  width: 250px;
+  flex-shrink: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--gold-accent);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  position: sticky;
+  top: 78px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  box-shadow: var(--shadow-sm);
+}
+.filter-group { margin-bottom: 20px; }
+.filter-group:last-of-type { margin-bottom: 14px; }
+.filter-group h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.fg-hint { text-transform: none; font-weight: 400; letter-spacing: 0; font-size: 11px; }
+
+.color-toggles { display: flex; gap: 6px; flex-wrap: wrap; }
+.mana-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  transition: transform var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.mana-toggle:hover { border-color: var(--blue-accent); transform: translateY(-2px); }
+.mana-toggle.active { background: #eaf2fb; border-color: var(--blue-accent); box-shadow: 0 0 0 2px rgba(47,95,168,0.25); }
+html[data-theme="manabox"] .mana-toggle.active { background: rgba(139,92,246,0.18); box-shadow: 0 0 0 2px rgba(139,92,246,0.3); }
+.mini-toggle { display: block; margin-top: 8px; font-size: 12px; color: var(--text-muted); }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-row-scroll { max-height: 160px; overflow-y: auto; padding-right: 2px; }
+
+.range-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.range-row:last-child { margin-bottom: 0; }
+.range-row .range-label { font-size: 12px; color: var(--text-muted); width: 26px; flex-shrink: 0; }
+.range-row .range-sep { color: var(--text-muted); font-size: 12px; }
+.range-row input[type="number"] {
+  width: 0;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  background: var(--card-bg);
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.range-row input[type="number"]:focus { border-color: var(--blue-accent); outline: none; }
+.filter-select {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 12.5px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.chip {
+  background: var(--chip-bg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.chip:hover { background: #e2ded0; transform: translateY(-1px); }
+.chip:active { transform: scale(0.96); }
+.chip.active {
+  background: var(--chip-active);
+  color: #fff;
+}
+.chip.chip-and {
+  background: var(--success);
+  color: #fff;
+}
+.chip.chip-or {
+  background: var(--danger);
+  color: #fff;
+}
+.mechanics-legend {
+  margin: -4px 0 8px;
+}
+.legend-and { color: var(--success); font-weight: 700; }
+.legend-or { color: var(--danger); font-weight: 700; }
+
+.clear-filters-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.clear-filters-btn:hover { border-color: #b9c2d0; color: var(--text); }
+
+/* ---------- RESULTS ---------- */
+.results-area { flex: 1; min-width: 0; }
+.results-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  row-gap: 10px;
+}
+.sort-wrap { display: flex; align-items: center; gap: 8px; color: var(--text-muted); }
+.sort-wrap select {
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 13px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.sort-dir-btn {
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.sort-dir-btn:hover { border-color: var(--blue-accent); }
+
+.pagination-top { margin-left: auto; margin-top: 0; justify-content: flex-end; }
+.results-toolbar:has(> .pagination-top:only-child) { justify-content: center; }
+
+/* Sort/view-toggle/Commander Recs now live in the sidebar's "Display"
+   group instead of a toolbar above the grid — narrower context than the
+   old full-width toolbar row, so these need to wrap and stack instead of
+   fighting for one line. */
+.filter-group .sort-wrap { flex-wrap: wrap; margin-bottom: 8px; }
+.filter-group .sort-wrap select { flex: 1; min-width: 0; }
+.filter-group .view-toggle-wrap { margin-bottom: 10px; }
+.filter-group .view-toggle-btn { flex: 1; }
+.sidebar-full-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.sidebar-full-btn:hover { border-color: var(--gold-accent); color: var(--gold-accent); }
+
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 18px;
+}
+.card-tile {
+  cursor: pointer;
+  position: relative;
+  transition: transform var(--dur-base) var(--ease);
+}
+.card-tile:hover { transform: translateY(-6px); }
+.card-tile img {
+  width: 100%;
+  border-radius: 4.75% / 3.5%;
+  display: block;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  background: #ddd;
+  aspect-ratio: 63 / 88;
+  object-fit: cover;
+  transition: box-shadow var(--dur-base) var(--ease);
+}
+.card-tile:hover img { box-shadow: 0 10px 24px rgba(0,0,0,0.35); }
+.card-tile .qty-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(20,20,20,0.85);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  gap: 4px;
+}
+.card-tile .qty-badge .foil-marker { color: #ffd76a; }
+.card-tile .version-badge {
+  position: absolute;
+  bottom: 26px;
+  left: 6px;
+  background: rgba(20,20,20,0.85);
+  color: #fff;
+  border-radius: var(--radius-md);
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+}
+.card-tile .tile-add-btn {
+  position: absolute;
+  bottom: 26px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(47,95,168,0.92);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.card-tile:hover .tile-add-btn,
+.card-tile .tile-add-btn:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+.card-tile .tile-add-btn:hover { background: var(--blue-accent-hover); transform: scale(1.12); }
+/* Touch/coarse-pointer devices have no hover state, so a hover-only reveal
+   would make this the main "add to Deck Builder" affordance in the whole
+   app effectively unreachable there — show it always, same fix already
+   applied to the Deck Builder's own scratchpad tile controls. */
+@media (hover: none) {
+  .card-tile .tile-add-btn { opacity: 1; transform: scale(1); }
+}
+.card-tile .card-name {
+  margin-top: 6px;
+  font-size: 12.5px;
+  text-align: center;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- RARITY GEMS ---------- */
+/* Same color convention real Magic cards use for their rarity symbol —
+   applied consistently across the grid, table, and modal so rarity is
+   scannable at a glance instead of buried in plain lowercase text. */
+.rarity-gem {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,0.85);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+}
+.rarity-gem.rarity-common { background: var(--common); }
+.rarity-gem.rarity-uncommon { background: var(--uncommon); }
+.rarity-gem.rarity-rare { background: var(--rare); }
+.rarity-gem.rarity-mythic { background: linear-gradient(135deg, #ff8a3d, var(--mythic)); }
+
+.rarity-label {
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.rarity-label.rarity-common { color: var(--common); }
+.rarity-label.rarity-uncommon { color: var(--uncommon); }
+.rarity-label.rarity-rare { color: var(--rare); }
+.rarity-label.rarity-mythic { color: var(--mythic); }
+.results-table tbody tr {
+  border-left: 3px solid transparent;
+  transition: background var(--dur-fast) var(--ease), border-left-color var(--dur-fast) var(--ease);
+}
+.results-table tbody tr[data-rarity="common"] { border-left-color: var(--common); }
+.results-table tbody tr[data-rarity="uncommon"] { border-left-color: var(--uncommon); }
+.results-table tbody tr[data-rarity="rare"] { border-left-color: var(--rare); }
+.results-table tbody tr[data-rarity="mythic"] { border-left-color: var(--mythic); }
+
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.loading-state::before {
+  content: '';
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  border-top-color: var(--blue-accent);
+  animation: spin 0.8s linear infinite;
+}
+
+.pagination, .pagination-top {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.pagination button, .pagination-top button {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 6px 11px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.pagination button.active, .pagination-top button.active {
+  background: var(--blue-accent);
+  color: #fff;
+  border-color: var(--blue-accent);
+}
+.pagination button:hover, .pagination-top button:hover { border-color: var(--blue-accent); }
+
+/* ---------- MODAL ---------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(20,16,10,0.72), rgba(6,7,11,0.88));
+  backdrop-filter: blur(2px);
+  animation: fadeIn var(--dur-base) var(--ease) both;
+}
+/* A double-border "card frame" treatment — dark outer bezel + thin gold
+   inner line — echoing an actual Magic card's border rather than a plain
+   rounded white rectangle. Applied to every modal via .modal-content. */
+.modal-content {
+  position: relative;
+  background: var(--card-bg);
+  color: var(--text);
+  border-radius: 16px;
+  border: 7px solid var(--navy);
+  box-shadow:
+    inset 0 0 0 2px var(--gold-accent),
+    0 20px 60px rgba(0,0,0,0.5);
+  max-width: 780px;
+  width: 92%;
+  max-height: 88vh;
+  overflow-y: auto;
+  padding: 28px;
+  animation: modalPop var(--dur-base) var(--ease) both;
+}
+html[data-theme="manabox"] .modal-content { border-color: #060710; }
+/* The card-detail modal reads top-to-bottom now (art, then text), so a
+   narrower, taller column suits it better than the wide two-column frame
+   other modals still use. */
+#cardModal .modal-content { max-width: 600px; }
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--navy);
+  border: 1px solid var(--gold-accent);
+  font-size: 15px;
+  cursor: pointer;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.modal-close:hover { background: var(--danger); border-color: var(--danger); transform: rotate(90deg); }
+/* Stacked, not side-by-side: art up top like turning to a page in a
+   tome, full-width rules text below it. A real layout change on the
+   single most-viewed surface in the app, not just a re-skin. */
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+.modal-image-col {
+  width: 220px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.modal-details { width: 100%; }
+.modal-image {
+  width: 100%;
+  border-radius: 4.75% / 3.5%;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+.modal-versions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.modal-version-thumb {
+  width: 46px;
+  border-radius: 4.75% / 3.5%;
+  cursor: pointer;
+  opacity: 0.55;
+  border: 2px solid transparent;
+  transition: opacity var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.modal-version-thumb:hover { opacity: 0.85; transform: translateY(-2px); }
+.modal-version-thumb.active { opacity: 1; border-color: var(--blue-accent); }
+.modal-add-btn {
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.modal-add-btn:hover { background: var(--blue-accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.modal-add-btn:active { transform: translateY(0) scale(0.98); }
+.modal-set-commander-btn {
+  border: 1px solid var(--gold-accent);
+  background: var(--gold-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.modal-set-commander-btn:hover { background: var(--gold-accent-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.modal-set-commander-btn:active { transform: translateY(0) scale(0.98); }
+.modal-details { flex: 1; min-width: 0; }
+.modal-details h2 {
+  margin: 0 0 8px;
+  padding-right: 34px;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 25px;
+  letter-spacing: 0.3px;
+}
+.modal-mana { margin-bottom: 10px; font-size: 19px; }
+.modal-mana i { margin-right: 2px; }
+.modal-type {
+  color: var(--text-muted);
+  font-size: 13.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+/* An oracle-text box styled like a real card's rules-text panel — the
+   single detail that most says "Magic card" rather than "generic tooltip
+   text," and previously it was just plain paragraph text. */
+.modal-oracle {
+  white-space: pre-line;
+  line-height: 1.55;
+  font-size: 14.5px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--chip-bg);
+  border-left: 3px solid var(--gold-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.modal-pt {
+  display: inline-block;
+  font-weight: 700;
+  font-family: var(--font-display);
+  margin-bottom: 12px;
+  padding: 4px 12px;
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--gold-accent);
+}
+.modal-set-row { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; display: flex; gap: 12px; align-items: center; }
+.modal-owned { font-size: 14px; margin-bottom: 8px; }
+.modal-locations { font-size: 13px; color: var(--text-muted); margin-bottom: 10px; line-height: 1.4; }
+.modal-locations strong { color: var(--text); }
+.modal-price { font-size: 13px; color: var(--text-muted); }
+
+/* ---------- PULL PICKER ---------- */
+.pull-picker-content { max-width: 420px; }
+.pull-picker-content h2 { font-family: var(--font-display); font-weight: 400; margin-top: 0; margin-bottom: 4px; font-size: 19px; }
+.pull-picker-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.pull-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.pull-picker-option:hover { border-color: var(--blue-accent); background: #f5f8ff; transform: translateX(2px); }
+.pull-picker-option .pp-name { font-weight: 600; }
+.pull-picker-option .pp-name .pp-type { color: var(--text-muted); font-weight: 400; text-transform: capitalize; }
+.pull-picker-option .pp-qty { color: var(--text-muted); font-size: 12.5px; white-space: nowrap; }
+.pull-picker-option .pp-qty .pp-foil { color: var(--blue-accent); }
+
+.syntax-modal-content { max-width: 900px; }
+.syntax-modal-content h2 { font-family: var(--font-display); font-weight: 400; margin-top: 0; }
+.syntax-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.syntax-table td { padding: 8px 12px 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.syntax-table td:first-child { white-space: nowrap; width: 1%; }
+.syntax-table code { background: var(--chip-bg); padding: 2px 6px; border-radius: 4px; }
+.syntax-note { color: var(--text-muted); font-size: 13px; margin-top: 14px; }
+
+/* ---------- SCRATCHPAD / DECK BUILDER ---------- */
+.deck-builder-screen { padding: 32px 24px 60px; }
+.deck-builder-inner { max-width: 1300px; margin: 0 auto; }
+.deck-builder-screen h1 { font-family: var(--font-display); font-weight: 400; margin-bottom: 4px; }
+
+/* Groups "add a card you don't own" and "import a decklist" together,
+   right under the commander controls and above the checklist/synergy
+   panels — these are the actions a new, empty deck needs first, so they
+   shouldn't be buried below panels that only make sense once cards
+   already exist. */
+.deck-builder-add-section {
+  margin: 4px 0 18px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.deck-builder-add-section .ghost-add-row { margin: 0 0 10px; }
+.deck-builder-add-section .decklist-import { margin: 0; }
+
+.ghost-add-row {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+.ghost-add-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.ghost-add-row button {
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.ghost-add-row button:hover { background: var(--blue-accent-hover); }
+.ghost-add-row button:active { transform: scale(0.96); }
+
+.scratchpad-grid { margin-bottom: 16px; }
+.scratch-tile.scratch-ghost { opacity: 0.6; }
+.scratch-tile-placeholder {
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  border-radius: 4.75% / 3.5%;
+  background: var(--chip-bg);
+  border: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.scratch-ghost-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: var(--radius-md);
+}
+.scratch-tile-controls {
+  position: absolute;
+  bottom: 26px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.scratch-tile:hover .scratch-tile-controls,
+.scratch-tile:focus-within .scratch-tile-controls {
+  opacity: 1;
+  transform: translateY(0);
+}
+/* Touch/coarse-pointer devices have no hover state, so a hover-only reveal
+   would make these buttons effectively unreachable — show them always. */
+@media (hover: none) {
+  .scratch-tile-controls { opacity: 1; transform: none; }
+}
+.scratch-tile-controls button {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(20, 22, 30, 0.85);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.scratch-tile-controls button:hover { background: var(--blue-accent-hover); transform: scale(1.1); }
+.scratch-tile-controls .scratch-remove { background: rgba(179, 38, 30, 0.9); }
+.scratch-tile-controls .scratch-remove:hover { background: var(--danger); }
+
+.scratchpad-empty { padding: 30px 10px; font-size: 13.5px; }
+
+.scratchpad-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.scratchpad-actions button {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.scratchpad-actions button:hover { border-color: var(--blue-accent); }
+.scratchpad-actions .scratchpad-clear { margin-left: auto; color: var(--danger); }
+.scratchpad-actions + .fg-hint { margin-top: 8px; }
+.scratchpad-status { margin-top: 8px; font-size: 12.5px; color: var(--text-muted); min-height: 16px; }
+
+/* ---------- STALE PRICE REMINDER ---------- */
+.stale-reminder { color: #e8b04b; font-size: 12px; font-style: italic; }
+
+/* ---------- INLINE NOTES ---------- */
+.api-key-warning {
+  color: #e8b04b;
+  font-size: 11.5px;
+  margin: 4px 0 14px;
+  padding: 6px 9px;
+  border: 1px solid rgba(232,176,75,0.35);
+  border-radius: var(--radius-sm);
+  background: rgba(232,176,75,0.08);
+}
+/* Neutral (non-alarming) inline info note — same boxed treatment as the
+   API key warning above, but a calm blue instead of amber, for context
+   that's genuinely useful to see rather than a caution. */
+.fg-note {
+  color: var(--text-muted);
+  font-size: 11.5px;
+  margin: 4px 0 14px;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue-accent);
+  border-radius: var(--radius-sm);
+  background: var(--chip-bg);
+}
+
+/* ---------- BACKUP/RESTORE ---------- */
+.retry-no-reupload-btn { margin-top: 12px; }
+.backup-row { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: left; }
+.backup-btn {
+  display: inline-block;
+  border: 1px solid var(--blue-accent);
+  background: #fff;
+  color: var(--blue-accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 8px;
+  font-family: inherit;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.backup-btn:hover { background: var(--blue-accent); color: #fff; }
+.backup-restore-label { margin-bottom: 6px; }
+
+/* ---------- VIEW TOGGLE ---------- */
+.view-toggle-wrap { display: flex; gap: 4px; }
+.view-toggle-btn {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12.5px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.view-toggle-btn.active { background: var(--blue-accent); color: #fff; border-color: var(--blue-accent); }
+.card-tile.not-legal { opacity: 0.45; }
+.card-tile.not-legal::after {
+  content: 'Not legal';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.card-tile.not-legal .rarity-gem { display: none; }
+.modal-legality { font-size: 13px; margin-top: 6px; }
+.modal-legality.not-legal { color: var(--danger); font-weight: 600; }
+.modal-legality.legal { color: var(--success); }
+
+/* ---------- RESULTS TABLE VIEW ---------- */
+.results-table-wrap { overflow-x: auto; border-radius: var(--radius-md); border: 1px solid var(--border); }
+.results-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--card-bg); }
+.results-table th, .results-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+.results-table th { cursor: pointer; color: var(--text-muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.4px; background: var(--chip-bg); position: sticky; top: 0; transition: color var(--dur-fast) var(--ease); }
+.results-table th:hover { color: var(--blue-accent); }
+.results-table tbody tr { cursor: pointer; }
+.results-table tbody tr:hover { background: var(--bg); }
+.results-table tbody tr.not-legal { opacity: 0.5; }
+.results-table .rt-name { font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+.results-table .rt-legal-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #fbeaea; color: var(--danger); }
+.results-table .rt-legal-badge.ok { background: #e8f5e9; color: var(--success); }
+
+/* ---------- DECKLIST IMPORT ---------- */
+.decklist-import { margin: 14px 0; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.decklist-import summary {
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--blue-accent);
+  list-style: none;
+}
+.decklist-import summary::-webkit-details-marker { display: none; }
+.decklist-import summary::after { content: ' — paste a whole list at once instead of adding cards one by one'; font-weight: 400; color: var(--text-muted); font-size: 12.5px; }
+.decklist-import summary:hover { text-decoration: underline; }
+.decklist-import textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.decklist-import button {
+  margin-top: 8px;
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.decklist-import button:hover { background: var(--blue-accent-hover); }
+.decklist-import-result { margin-top: 8px; font-size: 12.5px; color: var(--text-muted); white-space: pre-line; }
+
+/* ---------- UNDO TOAST ---------- */
+.undo-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--navy);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13.5px;
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  animation: toastSlideUp var(--dur-base) var(--ease) both;
+}
+.undo-toast button {
+  background: var(--blue-accent);
+  border: none;
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background var(--dur-fast) var(--ease);
+}
+.undo-toast button:hover { background: var(--blue-accent-hover); }
+
+.app-version-badge {
+  position: fixed;
+  bottom: 8px;
+  right: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 50;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- DECK POWER/FUN SCORES ---------- */
+/* Icon prefixes give each badge a non-color signal too, not just a
+   pastel background — useful for colorblind users and just nicer to
+   scan at a glance. */
+.folder-tile-scores { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+.score-badge { font-size: 11px; padding: 2px 7px; border-radius: var(--radius-pill); font-weight: 600; cursor: help; border: 1px solid transparent; }
+.score-badge.power { background: #fde8e8; color: #a3241a; border-color: #f3c8c8; }
+.score-badge.power::before { content: '⚔ '; }
+.score-badge.fun { background: #e8f0fd; color: #1e5cab; border-color: #c9dcf7; }
+.score-badge.fun::before { content: '✦ '; }
+.score-badge.gameplan { background: #eaf7ea; color: #276b2e; border-color: #c9e8ca; }
+.score-badge.gameplan::before { content: '🎯 '; }
+.score-badge.gameplan-na { background: var(--chip-bg); color: var(--text-muted); font-weight: 400; }
+
+/* ---------- AI GRADING / SETTINGS MODALS ---------- */
+.ai-settings-content { max-width: 480px; }
+.ai-settings-content h2 { font-family: var(--font-display); font-weight: 400; margin-top: 0; margin-bottom: 10px; }
+.settings-section-heading {
+  margin: 22px 0 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+.settings-section-heading:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.ai-settings-label { display: block; font-size: 12.5px; font-weight: 600; margin: 14px 0 5px; }
+.ai-settings-content input[type="password"],
+.ai-settings-content input[type="text"],
+.ai-settings-content select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13.5px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.ai-settings-actions { display: flex; gap: 8px; margin-top: 16px; }
+.ai-settings-actions button {
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.ai-settings-actions button:hover { background: var(--blue-accent-hover); }
+.ai-settings-actions .ai-settings-clear { background: #fff; color: var(--danger); border-color: var(--danger); }
+.ai-settings-actions .ai-settings-clear:hover { background: var(--danger); color: #fff; }
+.ai-settings-status { margin-top: 10px; font-size: 12.5px; color: var(--text-muted); min-height: 16px; }
+
+.theme-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  padding: 4px 0;
+}
+.theme-toggle-row input[type="checkbox"] { margin-top: 3px; width: 16px; height: 16px; cursor: pointer; }
+.theme-toggle-row strong { display: block; font-size: 14px; margin-bottom: 2px; }
+.theme-toggle-row .fg-hint { margin: 0; }
+
+.cmdr-recs-content { max-width: 700px; }
+.cmdr-recs-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; max-height: 55vh; overflow-y: auto; }
+.cmdr-rec-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.cmdr-rec-row:hover { border-color: var(--blue-accent); }
+.cmdr-rec-main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cmdr-rec-name { font-weight: 600; font-size: 13.5px; }
+.cmdr-rec-reasons { font-size: 11.5px; color: var(--text-muted); }
+.cmdr-rec-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.cmdr-rec-score {
+  background: var(--chip-bg);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-weight: 700;
+  font-size: 11.5px;
+}
+.cmdr-rec-edhrec { background: #2f6f4f; color: #fff; }
+
+.deck-grade-panel {
+  max-width: 1400px;
+  margin: 0 auto 14px;
+  padding: 16px 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--gold-accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+.deck-tools-heading {
+  margin: 0 0 12px;
+  font-size: 12.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+}
+.deck-commander-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.deck-commander-label { color: var(--text-muted); font-weight: 600; }
+.deck-commander-value { font-weight: 600; }
+.deck-commander-value.is-unset { color: var(--text-muted); font-weight: 400; font-style: italic; }
+#setCommanderBtn {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+#setCommanderBtn:hover { border-color: var(--blue-accent); color: var(--blue-accent); }
+.set-commander-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.set-commander-row input {
+  flex: 1;
+  min-width: 220px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.set-commander-row button {
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.set-commander-row #setCommanderClearBtn,
+.set-commander-row #setCommanderCancelBtn,
+.set-commander-row #scratchCommanderClearBtn,
+.set-commander-row #scratchCommanderCancelBtn {
+  background: #fff;
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+.deck-builder-panel {
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--blue-accent);
+  border-radius: var(--radius-md);
+}
+.deck-builder-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.deck-size-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.deck-size-control input {
+  width: 58px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-family: inherit;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.deck-builder-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.deck-builder-checklist { display: flex; flex-direction: column; gap: 6px; }
+.dbc-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.dbc-label { width: 90px; flex-shrink: 0; }
+.dbc-track { flex: 1; background: var(--track-bg); border-radius: 4px; height: 14px; overflow: hidden; }
+.dbc-fill { height: 100%; background: var(--gold-accent); transition: width var(--dur-slow) var(--ease); }
+.dbc-fill.dbc-met { background: var(--success); }
+.dbc-count { width: 58px; text-align: right; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+.commander-synergies-panel { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.commander-synergies-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 14px; }
+/* Blue by default (matches the rest of the app's tags/tabs) for tabs
+   built from the local heuristic list. Tabs actually sourced from an
+   AI-suggested query (see .ai-sourced below) get the gold "AI" accent
+   instead, so the color means something rather than being uniformly gold
+   regardless of where the tag came from. */
+.cmdr-syn-tab {
+  border: 1px solid var(--blue-accent);
+  background: #fff;
+  color: var(--blue-accent);
+  border-radius: var(--radius-pill);
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.cmdr-syn-tab.active, .cmdr-syn-tab:hover { background: var(--blue-accent); color: #fff; }
+.cmdr-syn-tab.ai-sourced {
+  border-color: var(--gold-accent);
+  color: var(--gold-accent);
+}
+.cmdr-syn-tab.ai-sourced.active, .cmdr-syn-tab.ai-sourced:hover { background: var(--gold-accent); color: #fff; }
+.commander-synergies-content { min-height: 40px; }
+.cmdr-syn-query { font-family: monospace; font-size: 11.5px; margin: -4px 0 10px; opacity: 0.75; }
+.cmdr-syn-grid { gap: 12px; }
+.cmdr-syn-tile { cursor: pointer; }
+.deck-grade-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.deck-grade-actions button {
+  border: 1px solid var(--blue-accent);
+  background: #fff;
+  color: var(--blue-accent);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.deck-grade-actions button:hover { background: var(--blue-accent); color: #fff; }
+.deck-grade-actions button:active { transform: scale(0.97); }
+
+/* Any button that calls out to your own Anthropic API key gets this same
+   teal treatment app-wide (Grade with AI, Refine with AI, Suggest tags
+   with AI) — a consistent visual "this costs your own API usage" signal,
+   distinct from both the app's primary blue actions and the gold used for
+   commander-related controls elsewhere. */
+.ai-action-btn,
+.deck-grade-actions button.ai-action-btn {
+  border-color: var(--ai-accent) !important;
+  color: var(--ai-accent) !important;
+}
+.ai-action-btn:hover,
+.deck-grade-actions button.ai-action-btn:hover {
+  background: var(--ai-accent) !important;
+  color: #fff !important;
+}
+
+.deck-grade-status { font-size: 12.5px; color: var(--text-muted); font-style: italic; }
+.deck-grade-status.error { color: var(--danger); font-style: normal; }
+.paste-grade-row {
+  margin-top: 10px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+}
+.paste-grade-row textarea {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  background: var(--card-bg);
+  color: var(--text);
+}
+.paste-grade-row button {
+  margin-top: 8px;
+  border: 1px solid var(--blue-accent);
+  background: var(--blue-accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.paste-grade-row button:hover { background: var(--blue-accent-hover); }
+.deck-grade-results {
+  margin-top: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  animation: fadeInUp var(--dur-base) var(--ease) both;
+}
+.deck-grade-meta { font-size: 12.5px; color: var(--text-muted); margin-bottom: 12px; }
+.deck-grade-score-row { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 14px; }
+.deck-grade-score { display: flex; flex-direction: column; min-width: 140px; }
+.deck-grade-score .dgs-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); }
+.deck-grade-score .dgs-value { font-size: 26px; font-weight: 400; font-family: var(--font-display); }
+.deck-grade-score .dgs-value.power { color: #a3241a; }
+.deck-grade-score .dgs-value.fun { color: var(--blue-accent); }
+.deck-grade-score .dgs-value.thing { color: var(--success); }
+.deck-grade-reasoning { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+.deck-grade-reasoning strong { display: block; margin-bottom: 2px; }
+.deck-grade-raw { font-size: 12px; color: var(--text-muted); white-space: pre-wrap; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; }
+
+/* ---------- STATS SCREEN ---------- */
+.stats-screen { padding: 32px 24px 60px; }
+.stats-inner { max-width: 1300px; margin: 0 auto; }
+.stats-body { animation: fadeIn var(--dur-base) var(--ease) both; }
+.stats-screen h1 { font-family: var(--font-display); font-weight: 400; }
+.stats-summary-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px 22px;
+}
+.stats-summary-item { display: flex; flex-direction: column; }
+.stats-summary-item .stat-value { font-size: 22px; font-weight: 400; font-family: var(--font-display); }
+.stats-summary-item .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+.stats-card { background: var(--card-bg); border: 1px solid var(--border); border-top: 3px solid var(--gold-accent); border-radius: var(--radius-md); padding: 16px 18px; transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+.stats-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.stats-card h3 { margin: 0 0 12px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.stats-card-wide { grid-column: 1 / -1; }
+.stats-bars { display: flex; flex-direction: column; gap: 7px; }
+.stats-bar-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.stats-bar-label { width: 90px; flex-shrink: 0; text-transform: capitalize; }
+.stats-bar-track {
+  flex: 1;
+  background: var(--track-bg);
+  border-radius: 4px;
+  height: 16px;
+  overflow: hidden;
+}
+.stats-bar-fill {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  background: var(--gold-accent);
+  transition: width var(--dur-slow) var(--ease);
+}
+.stats-bar-count { width: 46px; text-align: right; color: var(--text-muted); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.stats-bar-count-wide { width: auto; min-width: 110px; }
+.stats-curve .stats-bar-label { width: 30px; }
+.stats-empty-note { color: var(--text-muted); font-size: 12.5px; font-style: italic; }
+.stats-card .fg-hint { margin: -4px 0 12px; color: var(--text-muted); }
+.stats-list { display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.stats-list-row { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+.stats-list-row:last-child { border-bottom: none; }
+.stats-list-row .sl-name { font-weight: 600; }
+.stats-list-row .sl-meta { color: var(--text-muted); font-size: 12px; }
+
+/* ---------- RESPONSIVE ---------- */
+@media (max-width: 1100px) {
+  .search-meta { font-size: 12.5px; }
+  .results-toolbar { row-gap: 12px; }
+}
+@media (max-width: 860px) {
+  .layout { flex-direction: column; }
+  .filters { width: 100%; position: static; max-height: none; }
+  .modal-body { flex-direction: column; }
+  .modal-image-col { width: 100%; }
+  .topbar-inner { gap: 14px; }
+  .topbar-right { width: 100%; justify-content: space-between; }
+}
+@media (max-width: 640px) {
+  .topnav { gap: 12px; font-size: 13px; }
+  .search-hero { padding: 16px; }
+  .search-bar { padding: 12px 36px; font-size: 15px; }
+  .results-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .modal-content { padding: 18px; }
+  .deck-grade-score-row { gap: 14px; }
+}
+
+/* =======================================================================
+   ARCANE FLOURISHES
+   A second pass leaning further into the fantasy/tabletop side of Magic's
+   own identity, not just its card frame — a scryfall clone can look like
+   Scryfall, but Scrybox gets to feel more like a spellbook. Everything
+   below is additive polish: glows, ornamental rules, a themed scrollbar,
+   a shimmer sweep on primary actions, an arcane loading rune. Nothing
+   here changes layout, so it's safe to layer on top of the design system
+   above.
+   ======================================================================= */
+
+/* Themed scrollbar — small, but a plain OS-gray scrollbar is one of the
+   fastest tells that a page hasn't actually been designed. */
+::-webkit-scrollbar { width: 11px; height: 11px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gold-accent), var(--navy-2));
+  border-radius: 6px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, var(--gold-accent-hover), var(--navy)); }
+* { scrollbar-color: var(--gold-accent) var(--bg); scrollbar-width: thin; }
+
+/* Ornamental section rules — a small gold diamond flanked by fading lines,
+   the same device illuminated manuscripts and old rulebooks use for
+   chapter breaks. Applied to every recurring sub-heading in the app. */
+.filter-group h3,
+.stats-card h3,
+.deck-tools-heading,
+.settings-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.filter-group h3::before,
+.stats-card h3::before,
+.deck-tools-heading::before,
+.settings-section-heading::before { content: '◆'; color: var(--gold-accent); font-size: 8px; flex-shrink: 0; }
+.filter-group h3::after,
+.stats-card h3::after,
+.deck-tools-heading::after,
+.settings-section-heading::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+
+/* A slow shimmer sweep across every primary/filled action button — reads
+   as a faint enchantment glimmer without being distracting, since it only
+   plays once per hover rather than looping. */
+.modal-add-btn, .modal-set-commander-btn, .ghost-add-row button,
+.decklist-import button, .ai-settings-actions button,
+.set-commander-row button, .paste-grade-row button,
+.deck-grade-actions button, .scope-banner button,
+.pagination button.active, .pagination-top button.active {
+  position: relative;
+  overflow: hidden;
+}
+.modal-add-btn::after, .modal-set-commander-btn::after, .ghost-add-row button::after,
+.decklist-import button::after, .ai-settings-actions button::after,
+.set-commander-row button::after, .paste-grade-row button::after,
+.deck-grade-actions button::after, .scope-banner button::after,
+.pagination button.active::after, .pagination-top button.active::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -60%;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: skewX(-20deg);
+  transition: left var(--dur-slow) var(--ease);
+  pointer-events: none;
+}
+.modal-add-btn:hover::after, .modal-set-commander-btn:hover::after, .ghost-add-row button:hover::after,
+.decklist-import button:hover::after, .ai-settings-actions button:hover::after,
+.set-commander-row button:hover::after, .paste-grade-row button:hover::after,
+.deck-grade-actions button:hover::after, .scope-banner button:hover::after,
+.pagination button.active:hover::after, .pagination-top button.active:hover::after { left: 130%; }
+
+/* A soft candlelit glow on card art when you hover it — the closest a
+   flat image can get to feeling like it's catching torchlight. Tuned
+   subtle so it reads as ambiance, not a UI affordance. */
+.card-tile img { transition: box-shadow var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+.card-tile:hover img { box-shadow: 0 10px 26px rgba(0,0,0,0.4), 0 0 22px rgba(184, 137, 44, 0.28); }
+html[data-theme="manabox"] .card-tile:hover img { box-shadow: 0 10px 26px rgba(0,0,0,0.55), 0 0 26px rgba(139, 92, 246, 0.4); }
+.modal-image { transition: box-shadow var(--dur-base) var(--ease); }
+.modal-image:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.3), 0 0 30px rgba(184, 137, 44, 0.3); }
+
+/* Mana-color toggles read as little enchanted orbs — a faint glow when
+   active instead of a flat highlighted circle. */
+.mana-toggle.active { box-shadow: 0 0 0 2px rgba(47,95,168,0.25), 0 0 12px rgba(47,95,168,0.45); }
+html[data-theme="manabox"] .mana-toggle.active { box-shadow: 0 0 0 2px rgba(139,92,246,0.3), 0 0 14px rgba(139,92,246,0.55); }
+
+/* Search bar gets a slow-pulsing arcane glow around the crystal-ball icon
+   when the field is focused, like it's actively scrying. */
+.search-icon { transition: filter var(--dur-base) var(--ease), transform var(--dur-base) var(--ease); }
+.search-bar-wrap:focus-within .search-icon {
+  filter: drop-shadow(0 0 6px rgba(184, 137, 44, 0.8));
+  animation: pulseGlow 1.6s ease-in-out infinite;
+}
+
+/* Loading state becomes a spinning rune circle instead of a generic
+   spinner, and empty states get a small crystal-ball glyph so a "nothing
+   here" screen still feels like part of the same world. */
+.loading-state::before {
+  border: 3px solid var(--border);
+  border-top-color: var(--gold-accent);
+  border-right-color: var(--gold-accent);
+  box-shadow: 0 0 14px rgba(184, 137, 44, 0.35);
+}
+.empty-state {
+  font-style: italic;
+  font-family: var(--font-display);
+  letter-spacing: 0.3px;
+  font-size: 17px;
+}
+.empty-state::before {
+  content: '🔮';
+  display: block;
+  font-size: 26px;
+  margin-bottom: 10px;
+  font-style: normal;
+  opacity: 0.7;
+}
+
+/* Chips read a little more like enchanted tags with a small gem prefix
+   when active. */
+.chip.active::before { content: '✦ '; }
+
+/* Undo toast gets a small torch glyph and a subtle gold glow, like a
+   message scrawled and lit rather than a flat gray system notification. */
+.undo-toast {
+  border: 1px solid var(--gold-accent);
+  box-shadow: var(--shadow-lg), 0 0 24px rgba(184, 137, 44, 0.25);
+}
+.undo-toast::before { content: '🕯️ '; }
+
+/* Deck grade score values get a faint colored glow matching their theme,
+   like an enchanted stat block. */
+.deck-grade-score .dgs-value { text-shadow: 0 0 16px currentColor; opacity: 0.96; }
+
+/* Score badges get the same tiny-gem treatment as chips for a consistent
+   "this is a magical rating" language across Decks/Binders and Stats. */
+.score-badge { position: relative; }
