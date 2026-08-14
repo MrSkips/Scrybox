@@ -2862,7 +2862,18 @@
     $('#modalManaCost').innerHTML = manaCostToHtml(card.mana_cost);
     $('#modalTypeLine').textContent = card.type_line;
     $('#modalOracleText').textContent = card.oracle_text;
-    $('#modalPowerToughness').textContent = (card.power && card.toughness) ? `${card.power} / ${card.toughness}` : '';
+    // The P/T pill is now a real boxed element (background/border), not
+    // plain text, so it has to be explicitly hidden when there's nothing
+    // to show — otherwise every non-creature/planeswalker card (the
+    // majority of most collections) shows an empty dark box in the modal.
+    const ptEl = $('#modalPowerToughness');
+    if (card.power && card.toughness) {
+      ptEl.textContent = `${card.power} / ${card.toughness}`;
+      ptEl.classList.remove('hidden');
+    } else {
+      ptEl.textContent = '';
+      ptEl.classList.add('hidden');
+    }
     $('#modalSet').textContent = `${card.set_name} (${card.set.toUpperCase()})`;
     const modalRarityEl = $('#modalRarity');
     modalRarityEl.textContent = card.rarity;

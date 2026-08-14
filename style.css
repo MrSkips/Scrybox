@@ -130,10 +130,42 @@ html[data-theme="manabox"] .sort-dir-btn,
 html[data-theme="manabox"] .view-toggle-btn,
 html[data-theme="manabox"] .pagination button,
 html[data-theme="manabox"] .pagination-top button,
-html[data-theme="manabox"] .scratchpad-actions button {
+html[data-theme="manabox"] .scratchpad-actions button,
+html[data-theme="manabox"] .mana-toggle,
+html[data-theme="manabox"] .scope-banner button,
+html[data-theme="manabox"] #setCommanderBtn,
+html[data-theme="manabox"] .set-commander-row #setCommanderClearBtn,
+html[data-theme="manabox"] .set-commander-row #setCommanderCancelBtn,
+html[data-theme="manabox"] .set-commander-row #scratchCommanderClearBtn,
+html[data-theme="manabox"] .set-commander-row #scratchCommanderCancelBtn,
+html[data-theme="manabox"] .cmdr-syn-tab,
+html[data-theme="manabox"] .deck-grade-actions button {
   background: var(--card-bg);
   color: var(--text);
 }
+/* These two keep their accent border/text color on top of the dark
+   card-bg fill above — only the background needed correcting. */
+html[data-theme="manabox"] .cmdr-syn-tab { border-color: var(--blue-accent); color: var(--blue-accent); }
+html[data-theme="manabox"] .cmdr-syn-tab.ai-sourced { border-color: var(--gold-accent); color: var(--gold-accent); }
+html[data-theme="manabox"] .deck-grade-actions button { border-color: var(--blue-accent); color: var(--blue-accent); }
+html[data-theme="manabox"] .scope-banner button { color: var(--blue-accent); }
+html[data-theme="manabox"] #setCommanderBtn,
+html[data-theme="manabox"] .set-commander-row #setCommanderClearBtn,
+html[data-theme="manabox"] .set-commander-row #setCommanderCancelBtn,
+html[data-theme="manabox"] .set-commander-row #scratchCommanderClearBtn,
+html[data-theme="manabox"] .set-commander-row #scratchCommanderCancelBtn { color: var(--text-muted); }
+html[data-theme="manabox"] .ai-settings-actions .ai-settings-clear { background: var(--card-bg); }
+html[data-theme="manabox"] .mana-toggle.active { background: rgba(108, 143, 214, 0.22); }
+html[data-theme="manabox"] .chip:hover { background: #2a2536; }
+/* Pastel badges (results-table legality, folder-tile power/fun/gameplan
+   scores) were tuned for the light theme's white backgrounds — same
+   colors read as washed-out/mismatched against dark card surfaces, even
+   though they're still legible. Deepened to fit the dark palette. */
+html[data-theme="manabox"] .rt-legal-badge { background: rgba(179, 38, 30, 0.22); color: #ff9d94; }
+html[data-theme="manabox"] .rt-legal-badge.ok { background: rgba(46, 125, 50, 0.22); color: #8fd99a; }
+html[data-theme="manabox"] .score-badge.power { background: rgba(163, 36, 26, 0.22); color: #ff9d8f; border-color: rgba(163, 36, 26, 0.4); }
+html[data-theme="manabox"] .score-badge.fun { background: rgba(108, 143, 214, 0.22); color: #a8c2ef; border-color: rgba(108, 143, 214, 0.4); }
+html[data-theme="manabox"] .score-badge.gameplan { background: rgba(46, 125, 50, 0.22); color: #8fd99a; border-color: rgba(46, 125, 50, 0.4); }
 
 * { box-sizing: border-box; }
 
@@ -592,7 +624,7 @@ html[data-theme="manabox"] .search-bar-wrap:focus-within { box-shadow: 0 0 0 3px
   padding: 0 14px;
   transition: color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
 }
-.search-clear:hover { color: #333; transform: rotate(90deg); }
+.search-clear:hover { color: var(--text); transform: rotate(90deg); }
 .search-meta {
   margin-top: 10px;
   color: #9aa3b5;
@@ -1247,8 +1279,26 @@ html[data-theme="manabox"] .modal-content { border-color: #060710; }
 .ghost-add-row button:hover { background: var(--blue-accent-hover); }
 .ghost-add-row button:active { transform: scale(0.96); }
 
-.scratchpad-grid { margin-bottom: 16px; }
+/* Scratchpad tiles reuse .card-tile (same base look as the main search
+   grid) plus .scratch-tile for a few tweaks — but until now nothing
+   actually made them look different, so a Deck Builder card scrolled to
+   mid-screen was indistinguishable from a search result. A tinted "deck
+   box" container plus a blue ring on every card image fixes that: it now
+   reads as "these are in your deck" regardless of scroll position. */
+.scratchpad-grid {
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.scratchpad-grid:empty { display: none; }
+.scratch-tile img {
+  outline: 2px solid var(--blue-accent);
+  outline-offset: 1px;
+}
 .scratch-tile.scratch-ghost { opacity: 0.6; }
+.scratch-tile.scratch-ghost img { outline-style: dashed; }
 .scratch-tile-placeholder {
   width: 100%;
   aspect-ratio: 63 / 88;
