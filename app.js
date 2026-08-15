@@ -19,6 +19,8 @@
   const SETS_META_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
   const SCRATCHPAD_COMMANDER_KEY = 'scrybox_scratchpad_commander_v1';
   const COMMANDER_SYNERGY_TAGS_KEY = 'scrybox_commander_synergy_tags_v1';
+  const COMMANDER_CANDIDATES_KEY = 'scrybox_commander_candidates_v1';
+  const SAVED_BUILDS_KEY = 'scrybox_saved_builds_v1';
   const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
   const PAGE_SIZE = 60;
   const SCRYFALL_COLLECTION_URL = 'https://api.scryfall.com/cards/collection';
@@ -95,11 +97,21 @@
       touMax: null,
       sets: new Set(),
       yearMin: null,
-      yearMax: null
+      yearMax: null,
+      tribal: new Set(),       // creature subtypes, e.g. "zombie" — see buildTribalChips()
+      priceMin: null,
+      priceMax: null,
+      commanderCandidate: false // "potential commander" tag filter — see state.commanderCandidates
     },
+    // Card names (lowercased) manually tagged as "potential commander" —
+    // independent of whether the card is actually legendary/eligible, so
+    // it works as a personal bookmark list rather than a legality check.
+    commanderCandidates: new Set(),
     presets: [],           // [{ name, query, filters }] saved searches
     legalityFormat: '',    // format key to highlight non-legal cards against, e.g. 'modern'
     resultsView: 'grid',   // 'grid' | 'table'
+    bulkSelectMode: false,  // grid-only: when on, tiles toggle selection instead of opening the modal
+    bulkSelected: new Map(),  // group representative card.id -> card, rebuilt-safe (cleared on mode toggle/search/page change)
     lastSyncedAt: null,    // ISO string, used for the stale-price reminder
     aiSettings: { apiKey: '', model: 'claude-sonnet-5' },
     aiGrades: {},           // deckName -> grade result from the AI grading feature
@@ -112,13 +124,22 @@
     appSettings: { manaboxTheme: true, deckBuilderTargetSize: 99 },
     setsMeta: null,          // set code -> { name, card_count }, lazily fetched from Scryfall
     statsRenderToken: 0,     // guards the async set-completeness render against stale overwrites
+    missingSetToken: 0,      // guards the async "missing from set" modal against a stale response landing after a different set was opened
     commanderRecs: { commander: null, allCandidates: [], candidates: [] }, // ephemeral, not persisted — recomputed each time
     commanderRecsToken: 0,  // guards the async EDHREC fetch against stale overwrites if the user picks another commander mid-fetch
     scratchpadCommander: '',  // card name (not object — resolved by lookup each time so it survives a re-sync)
     commanderSynergiesActiveTab: 0,
     commanderSynergiesToken: 0,  // guards against a stale async re-render if the commander changes mid-query
     commanderSynergyTags: {},  // { [commanderNameLowercase]: [{label, query}] } — AI-suggested tags, keyed by name (not card id/printing) so they survive a delete + re-add or a re-sync onto a different printing
-    lastParsedUpload: null  // { groups, binders } — cached in memory after a CSV is parsed, so a failed import can be retried without re-selecting the file
+    lastParsedUpload: null,  // { groups, binders } — cached in memory after a CSV is parsed, so a failed import can be retried without re-selecting the file
+    cutSuggestions: { commanderName: null, edhrecMap: null, error: null, loading: false },  // cache keyed by commander name, so scratchpad edits (which re-render constantly) don't refetch EDHREC every time — only a commander change does
+    cutSuggestionsToken: 0,  // guards the async EDHREC fetch against stale overwrites if the commander changes mid-fetch
+    // Named snapshots of a full Deck Builder build (scratchpad + commander +
+    // deck size target), so you can juggle several in-progress builds
+    // instead of the scratchpad only ever holding one. The scratchpad
+    // itself stays the single "active" build every existing function
+    // already reads/writes — saving/loading just snapshots into/out of it.
+    savedBuilds: {}  // { [name]: { scratchpad, commander, deckSize, savedAt } }
   };
 
   const LEGALITY_LABELS = {
@@ -148,6 +169,10 @@
   const clearFiltersBtn = $('#clearFiltersBtn');
   const mechanicsChipsEl = $('#mechanicsChips');
   const setChipsEl = $('#setChips');
+  const tribalChipsEl = $('#tribalChips');
+  const priceMinInput = $('#priceMinInput');
+  const priceMaxInput = $('#priceMaxInput');
+  const filteredTotalValueEl = $('#filteredTotalValue');
   const mvMinInput = $('#mvMinInput');
   const mvMaxInput = $('#mvMaxInput');
   const powMinInput = $('#powMinInput');
@@ -185,6 +210,11 @@
   const formatLegalitySelect = $('#formatLegalitySelect');
   const viewGridBtn = $('#viewGridBtn');
   const viewTableBtn = $('#viewTableBtn');
+  const bulkSelectToggleBtn = $('#bulkSelectToggleBtn');
+  const bulkActionBar = $('#bulkActionBar');
+  const bulkActionCount = $('#bulkActionCount');
+  const bulkActionAddBtn = $('#bulkActionAddBtn');
+  const bulkActionCandidateBtn = $('#bulkActionCandidateBtn');
   const resultsTableWrap = $('#resultsTableWrap');
   const resultsTableBody = $('#resultsTableBody');
   const undoToast = $('#undoToast');
@@ -235,6 +265,9 @@
   const deckBuilderPanel = $('#deckBuilderPanel');
   const deckBuilderTags = $('#deckBuilderTags');
   const deckBuilderChecklist = $('#deckBuilderChecklist');
+  const manaBaseSuggestionEl = $('#manaBaseSuggestion');
+  const cutSuggestionsEl = $('#cutSuggestions');
+  const savedBuildsListEl = $('#savedBuildsList');
   const deckSizeInput = $('#deckSizeInput');
   const commanderSynergiesPanel = $('#commanderSynergiesPanel');
   const commanderSynergiesTabs = $('#commanderSynergiesTabs');
@@ -257,6 +290,8 @@
     bindBackupEvents();
     bindViewToggleEvents();
     bindDecklistImportEvents();
+    bindDecklistDiffEvents();
+    bindSavedBuildsEvents();
     bindUndoToastEvents();
     bindKeyboardShortcuts();
     bindAiSettingsEvents();
@@ -277,6 +312,8 @@
     let appSettings = null;
     let scratchpadCommander = null;
     let commanderSynergyTags = null;
+    let commanderCandidates = null;
+    let savedBuilds = null;
     try {
       cached = await localforage.getItem(STORAGE_KEY);
       meta = await localforage.getItem(META_KEY);
@@ -289,6 +326,8 @@
       appSettings = await localforage.getItem(APP_SETTINGS_KEY);
       scratchpadCommander = await localforage.getItem(SCRATCHPAD_COMMANDER_KEY);
       commanderSynergyTags = await localforage.getItem(COMMANDER_SYNERGY_TAGS_KEY);
+      commanderCandidates = await localforage.getItem(COMMANDER_CANDIDATES_KEY);
+      savedBuilds = await localforage.getItem(SAVED_BUILDS_KEY);
     } catch (err) {
       setStatus('This browser is blocking local storage (e.g. private browsing) — you\'ll need to re-upload your CSV each time.', true);
     }
@@ -296,6 +335,9 @@
     if (scratch && Array.isArray(scratch)) state.scratchpad = scratch;
     if (typeof scratchpadCommander === 'string') state.scratchpadCommander = scratchpadCommander;
     if (commanderSynergyTags && typeof commanderSynergyTags === 'object') state.commanderSynergyTags = commanderSynergyTags;
+    if (commanderCandidates && Array.isArray(commanderCandidates)) state.commanderCandidates = new Set(commanderCandidates);
+    if (savedBuilds && typeof savedBuilds === 'object') state.savedBuilds = savedBuilds;
+    renderSavedBuildsList();
 
     if (excluded && Array.isArray(excluded)) state.excludedBinders = new Set(excluded);
     if (presets && Array.isArray(presets)) state.presets = presets;
@@ -381,6 +423,7 @@
     lastSyncedEl.textContent = state.lastSyncedAt ? formatSyncedAt(state.lastSyncedAt) : '';
     buildMechanicsChips();
     buildSetChips();
+    buildTribalChips();
     updateHeaderTotalValue();
     updateStaleReminder();
   }
@@ -510,15 +553,19 @@
   // A bar row for "N/M (X%)" style completeness — same visual language as
   // makeBarRow, but the fraction/percentage is spelled out in the count
   // column instead of a raw number, since the denominator differs per row.
-  function makeCompletionBarRow(label, owned, setTotal) {
+  function makeCompletionBarRow(label, owned, setTotal, code) {
     const row = document.createElement('div');
-    row.className = 'stats-bar-row';
+    row.className = 'stats-bar-row stats-bar-row-clickable';
     const exactPct = setTotal ? Math.min(100, (owned / setTotal) * 100) : 0;
     const displayPct = setTotal ? Math.max(2, Math.round(exactPct)) : 0;
     row.innerHTML =
       `<span class="stats-bar-label">${escapeHtml(label)}</span>` +
       `<span class="stats-bar-track"><span class="stats-bar-fill" style="width:${displayPct}%"></span></span>` +
       `<span class="stats-bar-count stats-bar-count-wide">${owned}/${setTotal} (${Math.round(exactPct)}%)</span>`;
+    if (code) {
+      row.title = `See what you're missing from ${label}`;
+      row.addEventListener('click', () => openMissingFromSetModal(code, label));
+    }
     return row;
   }
 
@@ -558,6 +605,79 @@
     return map;
   }
 
+  // Full per-set card lists (not just the /sets endpoint's total count)
+  // aren't part of what's cached for set-completeness — fetched live and
+  // cached in memory only for the current session, per set code, since
+  // there's no need to persist this across reloads the way the 30-day
+  // sets-meta cache is.
+  const setCardListCache = new Map(); // set code -> [{ name, image, collector_number }]
+  async function fetchSetCardList(code) {
+    if (setCardListCache.has(code)) return setCardListCache.get(code);
+    const all = [];
+    let url = `${SCRYFALL_SEARCH_URL}?q=${encodeURIComponent('set:' + code)}&unique=cards&order=set`;
+    while (url) {
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Scryfall returned HTTP ${resp.status}`);
+      const data = await resp.json();
+      (data.data || []).forEach((c) => {
+        const img = (c.image_uris && c.image_uris.normal) ||
+          (c.card_faces && c.card_faces[0] && c.card_faces[0].image_uris && c.card_faces[0].image_uris.normal) || '';
+        all.push({ name: c.name, image: img, collector_number: c.collector_number || '' });
+      });
+      url = data.has_more ? data.next_page : null;
+    }
+    setCardListCache.set(code, all);
+    return all;
+  }
+
+  // "What am I missing from this set" — compares the full card list above
+  // against owned printings from that same set (by name; a printing you
+  // own in a different set doesn't count toward THIS set's completion).
+  async function openMissingFromSetModal(code, setName) {
+    const modal = $('#missingSetModal');
+    const titleEl = $('#missingSetModalTitle');
+    const contentEl = $('#missingSetModalContent');
+    titleEl.textContent = `Missing from ${setName}`;
+    contentEl.innerHTML = '<p class="fg-hint">Loading the full card list from Scryfall…</p>';
+    modal.classList.remove('hidden');
+    const token = ++state.missingSetToken;
+    try {
+      const allCards = await fetchSetCardList(code);
+      if (token !== state.missingSetToken) return; // a different set was opened before this finished
+      const ownedNames = new Set(state.collection.filter((c) => c.set === code).map((c) => c.name.toLowerCase()));
+      const missing = allCards.filter((c) => !ownedNames.has(c.name.toLowerCase()));
+      contentEl.innerHTML = '';
+      if (!missing.length) {
+        contentEl.innerHTML = '<p class="fg-hint">You own every card from this set already — nice.</p>';
+        return;
+      }
+      const summary = document.createElement('p');
+      summary.className = 'fg-hint';
+      summary.textContent = `${missing.length} card${missing.length === 1 ? '' : 's'} you don't own yet, by name (a card counts as owned if you have it from any printing within this set):`;
+      contentEl.appendChild(summary);
+      const grid = document.createElement('div');
+      grid.className = 'results-grid missing-set-grid';
+      missing.forEach((c) => {
+        const tile = document.createElement('div');
+        tile.className = 'card-tile missing-set-tile';
+        const img = document.createElement('img');
+        img.loading = 'lazy';
+        img.src = c.image || '';
+        img.alt = c.name;
+        tile.appendChild(img);
+        const nameEl = document.createElement('div');
+        nameEl.className = 'card-name';
+        nameEl.textContent = c.name;
+        tile.appendChild(nameEl);
+        grid.appendChild(tile);
+      });
+      contentEl.appendChild(grid);
+    } catch (err) {
+      if (token !== state.missingSetToken) return;
+      contentEl.innerHTML = `<p class="fg-hint">Couldn't load this set's card list (${escapeHtml(err.message)}). Check your connection and try again.</p>`;
+    }
+  }
+
   // Renders asynchronously into #statsCompletionBars, separately from the
   // rest of renderStats (which is synchronous) — this is the one Stats
   // section that needs a network call. token guards against a stale
@@ -577,7 +697,7 @@
         .map(([code, owned]) => {
           const meta = setsMeta[code];
           if (!meta || !meta.card_count) return null;
-          return { name: meta.name || code.toUpperCase(), owned, total: meta.card_count, pct: owned / meta.card_count };
+          return { code, name: meta.name || code.toUpperCase(), owned, total: meta.card_count, pct: owned / meta.card_count };
         })
         .filter(Boolean)
         .sort((a, b) => b.pct - a.pct)
@@ -588,7 +708,7 @@
         el.innerHTML = '<div class="stats-empty-note">No matching set data yet.</div>';
         return;
       }
-      rows.forEach((r) => el.appendChild(makeCompletionBarRow(r.name, r.owned, r.total)));
+      rows.forEach((r) => el.appendChild(makeCompletionBarRow(r.name, r.owned, r.total, r.code)));
     }).catch((err) => {
       if (token !== state.statsRenderToken) return;
       el.innerHTML = `<div class="stats-empty-note">Couldn't load set completeness (${escapeHtml(err.message)}) — check your connection and reopen Stats to retry.</div>`;
@@ -787,6 +907,33 @@
       $('#statsSpecialSummary').appendChild(item);
     });
 
+    // Collection utilization — what fraction of unique cards (and total
+    // copies) have never been placed in any registered deck. Reuses
+    // sumDeckQty(), the same per-card deck-vs-storage split the "Not in a
+    // Deck" sidebar filter already relies on, so this stays consistent
+    // with what that filter would show you.
+    let usedUnique = 0;
+    let usedCopies = 0;
+    cards.forEach((c) => {
+      const deckQty = sumDeckQty(c);
+      const inDeck = deckQty.foil + deckQty.nonfoil;
+      if (inDeck > 0) { usedUnique++; usedCopies += inDeck; }
+    });
+    const unusedUnique = uniqueCount - usedUnique;
+    const unusedCopies = totalQty - usedCopies;
+    const utilEl = $('#statsUtilization');
+    utilEl.innerHTML = '';
+    if (!totalQty) {
+      utilEl.innerHTML = '<div class="stats-empty-note">No cards to summarize yet.</div>';
+    } else {
+      utilEl.appendChild(makeBarRow('In a deck', usedCopies, totalQty));
+      utilEl.appendChild(makeBarRow('Never used', unusedCopies, totalQty));
+      const note = document.createElement('p');
+      note.className = 'fg-hint';
+      note.textContent = `${unusedUnique.toLocaleString()} of your ${uniqueCount.toLocaleString()} unique cards (${unusedCopies.toLocaleString()} total copies) aren't currently in any deck — good trade/sale candidates, or just a browsing list. Doesn't include your Deck Builder scratchpad, since that's a build-in-progress, not a registered deck yet.`;
+      utilEl.appendChild(note);
+    }
+
     renderSetCompleteness(cards);
   }
 
@@ -857,6 +1004,13 @@
     bindRangeInput(touMaxInput, 'touMax');
     bindRangeInput(yearMinInput, 'yearMin');
     bindRangeInput(yearMaxInput, 'yearMax');
+    bindRangeInput(priceMinInput, 'priceMin');
+    bindRangeInput(priceMaxInput, 'priceMax');
+    $('#commanderCandidateChip').addEventListener('click', (e) => {
+      state.filters.commanderCandidate = !state.filters.commanderCandidate;
+      e.target.classList.toggle('active', state.filters.commanderCandidate);
+      runSearch();
+    });
   }
 
   // Wires a number <input> to a numeric state.filters field, treating an
@@ -1425,6 +1579,14 @@
     c._playstyles = derivePlaystyles(c);
     c._counters = /\{?\+1\/\+1\}?\s*counter/i.test(c.oracle_text);
     c._tags = deriveFunctionalTags(c);
+    // Tribal/creature-type subtypes (Zombie, Elf, etc.) — only meaningful
+    // for creatures (and the old "Tribal"/newer "Kindred" card types), so
+    // an Equipment's or Land's subtypes ("Equipment", "Desert", etc.)
+    // don't pollute the tribal chip list. Lowercased for case-insensitive
+    // matching against the chip values built in buildTribalChips().
+    c._subtypes = /creature|kindred/i.test(c.type_line || '')
+      ? new Set(extractSubtypes(c.type_line).map((s) => s.toLowerCase()))
+      : new Set();
   }
 
   // Fetches + builds card objects for a list of groups that need Scryfall data.
@@ -1649,6 +1811,7 @@
     syncStatusEl.textContent = `Prices refreshed for ${updatedCount.toLocaleString()} cards.`;
     buildMechanicsChips();
     buildSetChips();
+    buildTribalChips();
     updateHeaderTotalValue();
     runSearch();
   }
@@ -1763,6 +1926,36 @@
     });
   }
 
+  // Tribal/creature-type chips, built from _subtypes (see tagCard()) —
+  // shows how many copies you own of each creature type, sorted by count
+  // so your deepest tribal synergies surface first. Capped at 20 so a
+  // large, varied collection doesn't produce an unusably long chip list.
+  function buildTribalChips() {
+    const counts = new Map(); // lowercase subtype -> total copies owned
+    state.collection.forEach((c) => {
+      if (!c._subtypes || !c._subtypes.size) return;
+      const qty = c.qtyFoil + c.qtyNonfoil;
+      c._subtypes.forEach((t) => counts.set(t, (counts.get(t) || 0) + qty));
+    });
+    const entries = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 20);
+
+    tribalChipsEl.innerHTML = '';
+    entries.forEach(([type, count]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'chip';
+      btn.dataset.tribal = type;
+      btn.textContent = `${type[0].toUpperCase()}${type.slice(1)} (${count})`;
+      if (state.filters.tribal.has(type)) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('active');
+        toggleSetValue(state.filters.tribal, type);
+        runSearch();
+      });
+      tribalChipsEl.appendChild(btn);
+    });
+  }
+
   // Tri-state chip: off -> AND (green, label suffixed "(AND)") -> OR (red, "(OR)") -> off.
   // State is shown via color AND text, not color alone.
   function makeMechanicChip(label, value) {
@@ -1871,13 +2064,16 @@
       state.filters.ownership.clear();
       state.filters.deckStatus.clear();
       state.filters.sets.clear();
+      state.filters.tribal.clear();
       state.filters.minValue = null;
       minValueInput.value = '';
       state.filters.mvMin = null; state.filters.mvMax = null;
       state.filters.powMin = null; state.filters.powMax = null;
       state.filters.touMin = null; state.filters.touMax = null;
       state.filters.yearMin = null; state.filters.yearMax = null;
-      [mvMinInput, mvMaxInput, powMinInput, powMaxInput, touMinInput, touMaxInput, yearMinInput, yearMaxInput].forEach((el) => { el.value = ''; });
+      state.filters.priceMin = null; state.filters.priceMax = null;
+      state.filters.commanderCandidate = false;
+      [mvMinInput, mvMaxInput, powMinInput, powMaxInput, touMinInput, touMaxInput, yearMinInput, yearMaxInput, priceMinInput, priceMaxInput].forEach((el) => { el.value = ''; });
       state.filters.colorExact = false;
       document.querySelectorAll('.mana-toggle.active, .chip.active').forEach((el) => el.classList.remove('active'));
       document.querySelectorAll('#mechanicsChips .chip').forEach((el) => {
@@ -1926,6 +2122,8 @@
     });
     $('#syntaxModalClose').addEventListener('click', () => $('#syntaxModal').classList.add('hidden'));
     $('#syntaxModalBackdrop').addEventListener('click', () => $('#syntaxModal').classList.add('hidden'));
+    $('#missingSetModalClose').addEventListener('click', () => $('#missingSetModal').classList.add('hidden'));
+    $('#missingSetModalBackdrop').addEventListener('click', () => $('#missingSetModal').classList.add('hidden'));
     $('#exportResultsBtn').addEventListener('click', exportResultsForDeckbuilding);
     $('#exportResultsCsvBtn').addEventListener('click', exportResultsAsManaBoxCsv);
   }
@@ -2444,6 +2642,19 @@
       if (f.yearMax != null && y > f.yearMax) return false;
     }
 
+    if (f.tribal.size) {
+      const has = Array.from(f.tribal).some((t) => card._subtypes && card._subtypes.has(t));
+      if (!has) return false;
+    }
+
+    if (f.priceMin != null || f.priceMax != null) {
+      const p = priceOf(card);
+      if (f.priceMin != null && p < f.priceMin) return false;
+      if (f.priceMax != null && p > f.priceMax) return false;
+    }
+
+    if (f.commanderCandidate && !state.commanderCandidates.has(card.name.toLowerCase())) return false;
+
     return true;
   }
 
@@ -2529,6 +2740,7 @@
 
     state.filtered = results;
     state.page = 1;
+    state.bulkSelected.clear();
     renderResults();
   }
 
@@ -2668,6 +2880,14 @@
       ? `${groups.length.toLocaleString()} card${groups.length === 1 ? '' : 's'}`
       : `${groups.length.toLocaleString()} card${groups.length === 1 ? '' : 's'} (${totalPrintings.toLocaleString()} printings)`;
 
+    // Live running total of whatever's currently filtered — always visible
+    // (not just on the separate Value tab), so setting a Price filter and
+    // sorting by price immediately shows the total of just those results.
+    if (filteredTotalValueEl) {
+      const total = state.filtered.reduce((sum, c) => sum + computeCardValue(c), 0);
+      filteredTotalValueEl.textContent = `Total: $${total.toFixed(2)}`;
+    }
+
     const totalPages = Math.max(1, Math.ceil(groups.length / PAGE_SIZE));
     if (state.page > totalPages) state.page = totalPages;
     const start = (state.page - 1) * PAGE_SIZE;
@@ -2689,6 +2909,7 @@
 
     renderPagination(totalPages);
     updateValueTotal();
+    renderBulkActionBar();
   }
 
   function renderResultsTable(groups) {
@@ -2739,6 +2960,16 @@
     tile.className = 'card-tile';
     if (state.legalityFormat && !isLegalInFormat(card, state.legalityFormat)) tile.classList.add('not-legal');
 
+    if (state.bulkSelectMode) {
+      const selected = state.bulkSelected.has(card.id);
+      tile.classList.add('bulk-selectable');
+      if (selected) tile.classList.add('bulk-selected');
+      const check = document.createElement('div');
+      check.className = 'bulk-select-check';
+      check.textContent = selected ? '✓' : '';
+      tile.appendChild(check);
+    }
+
     const img = document.createElement('img');
     img.loading = 'lazy';
     img.src = card.image || '';
@@ -2784,8 +3015,85 @@
     nameEl.textContent = card.name;
     tile.appendChild(nameEl);
 
-    tile.addEventListener('click', () => openModal(group, 0));
+    tile.addEventListener('click', () => {
+      if (state.bulkSelectMode) {
+        toggleBulkSelected(card);
+        return;
+      }
+      openModal(group, 0);
+    });
     return tile;
+  }
+
+  // ---------------------------------------------------------------------
+  // Bulk selection mode — select multiple tiles in the grid, then add all
+  // of them to the Deck Builder or tag all as Commander Candidates in one
+  // shot, instead of one tile at a time. Table view doesn't support this
+  // (its rows already have a single click action — opening the modal —
+  // and retrofitting checkboxes there wasn't worth the added clutter).
+  // ---------------------------------------------------------------------
+  function toggleBulkSelected(card) {
+    if (state.bulkSelected.has(card.id)) state.bulkSelected.delete(card.id);
+    else state.bulkSelected.set(card.id, card);
+    renderResults();
+  }
+
+  function setBulkSelectMode(on) {
+    state.bulkSelectMode = on;
+    state.bulkSelected.clear();
+    renderResults();
+  }
+
+  // Adds one copy of each selected card to the scratchpad, auto-picking
+  // the best-stocked location (like the decklist importer does) rather
+  // than popping an interactive picker for every ambiguous one — with
+  // several cards selected, that would mean fighting through N modals.
+  // Cards with no copies left to pull (already fully in the scratchpad)
+  // are silently skipped.
+  function bulkAddSelectedToScratchpad() {
+    const cards = Array.from(state.bulkSelected.values());
+    let added = 0;
+    cards.forEach((card) => {
+      const locations = getAvailableLocations(card);
+      if (!locations.length) return;
+      locations.sort((a, b) => b.available - a.available);
+      pullCardFromSilent(card, locations[0]);
+      added++;
+    });
+    if (added) {
+      persistScratchpad();
+      renderScratchpad();
+    }
+    const skipped = cards.length - added;
+    syncStatusEl.textContent = `Added ${added} card${added === 1 ? '' : 's'} to the Deck Builder` +
+      (skipped ? ` (${skipped} skipped — no copies left to pull)` : '') + '.';
+    setTimeout(() => { if (syncStatusEl.textContent.startsWith('Added ')) syncStatusEl.textContent = ''; }, 4000);
+    setBulkSelectMode(false);
+  }
+
+  function bulkTagSelectedAsCommanderCandidates() {
+    const cards = Array.from(state.bulkSelected.values());
+    cards.forEach((card) => {
+      const key = card.name.toLowerCase();
+      state.commanderCandidates.add(key);
+    });
+    persistCommanderCandidates();
+    syncStatusEl.textContent = `Tagged ${cards.length} card${cards.length === 1 ? '' : 's'} as potential commanders.`;
+    setTimeout(() => { if (syncStatusEl.textContent.startsWith('Tagged ')) syncStatusEl.textContent = ''; }, 4000);
+    setBulkSelectMode(false);
+  }
+
+  function renderBulkActionBar() {
+    if (!bulkActionBar) return;
+    const active = state.bulkSelectMode;
+    bulkSelectToggleBtn.classList.toggle('active', active);
+    bulkSelectToggleBtn.textContent = active ? '☑ Exit Select' : '☑ Select';
+    bulkActionBar.classList.toggle('hidden', !active);
+    if (!active) return;
+    const n = state.bulkSelected.size;
+    bulkActionCount.textContent = n === 0 ? 'No cards selected' : `${n} card${n === 1 ? '' : 's'} selected`;
+    bulkActionAddBtn.disabled = n === 0;
+    bulkActionCandidateBtn.disabled = n === 0;
   }
 
   function renderPagination(totalPages) {
@@ -2820,7 +3128,7 @@
     $('#pullPickerClose').addEventListener('click', closePullPicker);
     $('#pullPickerBackdrop').addEventListener('click', closePullPicker);
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { closeModal(); closePullPicker(); $('#syntaxModal').classList.add('hidden'); }
+      if (e.key === 'Escape') { closeModal(); closePullPicker(); $('#syntaxModal').classList.add('hidden'); $('#missingSetModal').classList.add('hidden'); }
     });
   }
 
@@ -2917,6 +3225,20 @@
     const setCommanderModalBtn = $('#modalSetCommander');
     setCommanderModalBtn.classList.toggle('hidden', !isCommanderEligible);
     setCommanderModalBtn.onclick = () => setAsCommander(card);
+
+    // "Potential commander" is a manual bookmark, not a legality check, so
+    // it's available on every card — not gated behind isCommanderEligible
+    // the way the real Set as Commander button is.
+    const candidateBtn = $('#modalToggleCommanderCandidate');
+    const isCandidate = state.commanderCandidates.has(card.name.toLowerCase());
+    candidateBtn.classList.toggle('active', isCandidate);
+    candidateBtn.textContent = isCandidate ? '★ Potential Commander' : '☆ Mark as Potential Commander';
+    candidateBtn.onclick = () => {
+      toggleCommanderCandidate(card);
+      const nowCandidate = state.commanderCandidates.has(card.name.toLowerCase());
+      candidateBtn.classList.toggle('active', nowCandidate);
+      candidateBtn.textContent = nowCandidate ? '★ Potential Commander' : '☆ Mark as Potential Commander';
+    };
 
     $('#cardModal').classList.remove('hidden');
   }
@@ -3168,6 +3490,59 @@
       resultEl.textContent =
         `Pulled ${result.addedOwned} owned cop${result.addedOwned === 1 ? 'y' : 'ies'}, added ${result.addedGhost} as not-owned.\n\n` +
         result.lines.join('\n');
+    });
+  }
+
+  // Checks a pasted decklist against the whole collection WITHOUT touching
+  // the Deck Builder scratchpad — for "do I own what a netdeck/friend's
+  // list needs" before committing to actually building it. Uses total
+  // owned quantity across every printing of that name (not "available"
+  // i.e. not-already-pulled-elsewhere), since this is a general ownership
+  // check independent of any specific in-progress build.
+  function diffDecklistAgainstCollection(text) {
+    const entries = parseDecklistText(text);
+    if (!entries.length) return [];
+    const nameIndex = buildCollectionNameIndex();
+    return entries.map((entry) => {
+      const cards = nameIndex.get(entry.name.toLowerCase()) || [];
+      const owned = cards.reduce((sum, c) => sum + c.qtyFoil + c.qtyNonfoil, 0);
+      return { name: entry.name, requested: entry.qty, owned };
+    });
+  }
+
+  function bindDecklistDiffEvents() {
+    $('#decklistDiffBtn').addEventListener('click', () => {
+      const text = $('#decklistDiffInput').value;
+      const rows = diffDecklistAgainstCollection(text);
+      const resultEl = $('#decklistDiffResult');
+      resultEl.innerHTML = '';
+      if (!rows.length) {
+        resultEl.innerHTML = '<p class="fg-hint">Paste a decklist above first.</p>';
+        return;
+      }
+      const complete = rows.filter((r) => r.owned >= r.requested);
+      const short = rows.filter((r) => r.owned > 0 && r.owned < r.requested);
+      const missing = rows.filter((r) => r.owned === 0);
+
+      const section = (title, icon, list, cls) => {
+        if (!list.length) return;
+        const h = document.createElement('h4');
+        h.className = 'decklist-diff-heading';
+        h.textContent = `${icon} ${title} (${list.length})`;
+        resultEl.appendChild(h);
+        const ul = document.createElement('div');
+        ul.className = `decklist-diff-list ${cls}`;
+        list.forEach((r) => {
+          const row = document.createElement('div');
+          row.className = 'decklist-diff-row';
+          row.textContent = cls === 'complete' ? `${r.requested} ${r.name}` : `${r.requested} ${r.name} — own ${r.owned}`;
+          ul.appendChild(row);
+        });
+        resultEl.appendChild(ul);
+      };
+      section('You have these', '✓', complete, 'complete');
+      section("You're short on these", '◐', short, 'short');
+      section("You don't own these at all", '✕', missing, 'missing');
     });
   }
 
@@ -3569,7 +3944,9 @@
       ownership: Array.from(f.ownership), deckStatus: Array.from(f.deckStatus),
       minValue: f.minValue, mvMin: f.mvMin, mvMax: f.mvMax,
       powMin: f.powMin, powMax: f.powMax, touMin: f.touMin, touMax: f.touMax,
-      sets: Array.from(f.sets), yearMin: f.yearMin, yearMax: f.yearMax
+      sets: Array.from(f.sets), yearMin: f.yearMin, yearMax: f.yearMax,
+      tribal: Array.from(f.tribal), priceMin: f.priceMin, priceMax: f.priceMax,
+      commanderCandidate: f.commanderCandidate
     };
   }
 
@@ -3596,6 +3973,10 @@
     f.sets = new Set(sf.sets || []);
     f.yearMin = sf.yearMin != null ? sf.yearMin : null;
     f.yearMax = sf.yearMax != null ? sf.yearMax : null;
+    f.tribal = new Set(sf.tribal || []);
+    f.priceMin = sf.priceMin != null ? sf.priceMin : null;
+    f.priceMax = sf.priceMax != null ? sf.priceMax : null;
+    f.commanderCandidate = !!sf.commanderCandidate;
   }
 
   // Re-syncs every filter-related DOM control (chips, toggles, range inputs)
@@ -3628,6 +4009,10 @@
     touMaxInput.value = f.touMax != null ? f.touMax : '';
     yearMinInput.value = f.yearMin != null ? f.yearMin : '';
     yearMaxInput.value = f.yearMax != null ? f.yearMax : '';
+    priceMinInput.value = f.priceMin != null ? f.priceMin : '';
+    priceMaxInput.value = f.priceMax != null ? f.priceMax : '';
+    document.querySelectorAll('#tribalChips .chip').forEach((btn) => btn.classList.toggle('active', f.tribal.has(btn.dataset.tribal)));
+    $('#commanderCandidateChip').classList.toggle('active', f.commanderCandidate);
   }
 
   function persistPresets() {
@@ -3751,12 +4136,19 @@
     viewTableBtn.classList.toggle('active', view === 'table');
     resultsGrid.classList.toggle('hidden', view !== 'grid');
     resultsTableWrap.classList.toggle('hidden', view !== 'table');
+    // Bulk select only exists in grid view — table rows already have a
+    // single click action (opening the modal).
+    if (view !== 'grid' && state.bulkSelectMode) { state.bulkSelectMode = false; state.bulkSelected.clear(); }
     renderResults();
   }
 
   function bindViewToggleEvents() {
     viewGridBtn.addEventListener('click', () => setResultsView('grid'));
     viewTableBtn.addEventListener('click', () => setResultsView('table'));
+    bulkSelectToggleBtn.addEventListener('click', () => setBulkSelectMode(!state.bulkSelectMode));
+    bulkActionAddBtn.addEventListener('click', () => { if (state.bulkSelected.size) bulkAddSelectedToScratchpad(); });
+    bulkActionCandidateBtn.addEventListener('click', () => { if (state.bulkSelected.size) bulkTagSelectedAsCommanderCandidates(); });
+    $('#bulkActionClearBtn').addEventListener('click', () => setBulkSelectMode(false));
     formatLegalitySelect.addEventListener('change', (e) => {
       state.legalityFormat = e.target.value;
       renderResults();
@@ -3817,6 +4209,21 @@
 
   function persistDeckCommanders() {
     localforage.setItem(DECK_COMMANDERS_KEY, state.deckCommanders).catch((err) => logStorageFailure('deck commander overrides', err));
+  }
+
+  function persistCommanderCandidates() {
+    localforage.setItem(COMMANDER_CANDIDATES_KEY, Array.from(state.commanderCandidates)).catch((err) => logStorageFailure('potential-commander tags', err));
+  }
+
+  // Toggles whether `card` is tagged as a "potential commander" — a manual
+  // personal bookmark keyed by name (not printing id), independent of
+  // whether the card is actually legendary/eligible, so it also works for
+  // things like Backgrounds or partner pairs you're just considering.
+  function toggleCommanderCandidate(card) {
+    const key = card.name.toLowerCase();
+    if (state.commanderCandidates.has(key)) state.commanderCandidates.delete(key);
+    else state.commanderCandidates.add(key);
+    persistCommanderCandidates();
   }
 
   function persistAppSettings() {
@@ -4497,6 +4904,117 @@
     localforage.setItem(SCRATCHPAD_COMMANDER_KEY, state.scratchpadCommander || '').catch((err) => logStorageFailure('the Deck Builder commander', err));
   }
 
+  // ---------------------------------------------------------------------
+  // Saved builds — named snapshots of a full Deck Builder build. The
+  // scratchpad (plus its commander and deck size) stays the single
+  // "active" build every existing render/pull/checklist/synergy/mana-base
+  // function already reads and writes; saving/loading just copies data
+  // into and out of that active slot, so none of that code has to know
+  // saved builds exist at all.
+  // ---------------------------------------------------------------------
+  function persistSavedBuilds() {
+    localforage.setItem(SAVED_BUILDS_KEY, state.savedBuilds).catch((err) => logStorageFailure('saved Deck Builder builds', err));
+  }
+
+  function saveCurrentBuildAs(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    state.savedBuilds[trimmed] = {
+      scratchpad: JSON.parse(JSON.stringify(state.scratchpad)),
+      commander: state.scratchpadCommander || '',
+      deckSize: state.appSettings.deckBuilderTargetSize || 99,
+      savedAt: new Date().toISOString()
+    };
+    persistSavedBuilds();
+    renderSavedBuildsList();
+  }
+
+  // Swaps every piece of the active build (scratchpad, commander, deck
+  // size) for a saved one in one shot, then re-runs the exact same
+  // render/search calls the app already uses after any of those change
+  // individually — no new render path to keep in sync.
+  function applyActiveBuild(build) {
+    state.scratchpad = JSON.parse(JSON.stringify(build.scratchpad || []));
+    state.scratchpadCommander = build.commander || '';
+    state.appSettings.deckBuilderTargetSize = build.deckSize || 99;
+    persistScratchpad();
+    persistScratchpadCommander();
+    persistAppSettings();
+    renderScratchpad();
+    renderScratchCommanderRow();
+    runSearch();
+  }
+
+  // Switching builds is never a silent one-way trip — whatever was active
+  // before the switch goes into the undo toast, same pattern as clearing
+  // or removing a scratchpad item, in case it wasn't saved first.
+  function loadSavedBuild(name) {
+    const build = state.savedBuilds[name];
+    if (!build) return;
+    const previous = {
+      scratchpad: state.scratchpad,
+      commander: state.scratchpadCommander,
+      deckSize: state.appSettings.deckBuilderTargetSize
+    };
+    applyActiveBuild(build);
+    showUndoToast(`Switched to "${name}".`, () => applyActiveBuild(previous));
+  }
+
+  function deleteSavedBuild(name) {
+    const snapshot = state.savedBuilds[name];
+    if (!snapshot) return;
+    delete state.savedBuilds[name];
+    persistSavedBuilds();
+    renderSavedBuildsList();
+    showUndoToast(`Deleted saved build "${name}".`, () => {
+      state.savedBuilds[name] = snapshot;
+      persistSavedBuilds();
+      renderSavedBuildsList();
+    });
+  }
+
+  function renderSavedBuildsList() {
+    const el = savedBuildsListEl;
+    if (!el) return;
+    const names = Object.keys(state.savedBuilds).sort((a, b) => a.localeCompare(b));
+    if (!names.length) {
+      el.innerHTML = '<p class="fg-hint">No saved builds yet — name your current build below and save it to start juggling more than one.</p>';
+      return;
+    }
+    el.innerHTML = '';
+    names.forEach((name) => {
+      const build = state.savedBuilds[name];
+      const count = (build.scratchpad || []).reduce((sum, i) => sum + (i.qty || 0), 0);
+      const row = document.createElement('div');
+      row.className = 'saved-build-row';
+      row.innerHTML =
+        `<div class="saved-build-main">` +
+        `<span class="saved-build-name">${escapeHtml(name)}</span>` +
+        `<span class="saved-build-meta">${build.commander ? escapeHtml(build.commander) + ' · ' : ''}${count} card${count === 1 ? '' : 's'}</span>` +
+        `</div>` +
+        `<div class="saved-build-actions">` +
+        `<button type="button" class="saved-build-load-btn">Load</button>` +
+        `<button type="button" class="saved-build-delete-btn">Delete</button>` +
+        `</div>`;
+      row.querySelector('.saved-build-load-btn').addEventListener('click', () => loadSavedBuild(name));
+      row.querySelector('.saved-build-delete-btn').addEventListener('click', () => deleteSavedBuild(name));
+      el.appendChild(row);
+    });
+  }
+
+  function bindSavedBuildsEvents() {
+    $('#savedBuildSaveBtn').addEventListener('click', () => {
+      const input = $('#savedBuildNameInput');
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      const overwrite = !!state.savedBuilds[name];
+      saveCurrentBuildAs(name);
+      input.value = '';
+      syncStatusEl.textContent = `${overwrite ? 'Updated' : 'Saved'} build "${name}".`;
+      setTimeout(() => { if (syncStatusEl.textContent.includes(name)) syncStatusEl.textContent = ''; }, 3000);
+    });
+  }
+
   // Applies the commander's color identity to the sidebar Color Identity
   // filter (Commander-style/subset mode, same as manually clicking the mana
   // symbols) and re-runs search so browsing is immediately scoped to legal cards.
@@ -4578,6 +5096,143 @@
     });
   }
 
+  // Rough mana symbol -> color-pair mapping for hybrid/Phyrexian symbols
+  // (e.g. {W/U}, {B/P}) — counts the pip toward every color it could pay
+  // with. This over-counts slightly versus a "real" deckbuilding tool that
+  // weighs hybrid pips fractionally, but it's a suggestion, not a solver,
+  // and simpler to reason about at a glance.
+  const MANA_SYMBOL_COLORS = { W: 'w', U: 'u', B: 'b', R: 'r', G: 'g' };
+  const BASIC_LAND_NAMES = { w: 'Plains', u: 'Island', b: 'Swamp', r: 'Mountain', g: 'Forest' };
+
+  // Tallies colored mana symbols across every real (non-ghost) card
+  // currently in the Deck Builder, weighted by how many copies of each —
+  // ghost cards have no mana_cost data (nothing was ever fetched for a
+  // typed-but-unowned name), so they're naturally skipped.
+  function computeManaBasePips() {
+    const pips = { w: 0, u: 0, b: 0, r: 0, g: 0 };
+    state.scratchpad.forEach((item) => {
+      if (item.ghost || !item.mana_cost) return;
+      const symbols = item.mana_cost.match(/\{[^}]+\}/g) || [];
+      symbols.forEach((sym) => {
+        const inner = sym.slice(1, -1).toUpperCase();
+        Object.keys(MANA_SYMBOL_COLORS).forEach((letter) => {
+          if (inner.includes(letter)) pips[MANA_SYMBOL_COLORS[letter]] += item.qty;
+        });
+      });
+    });
+    return pips;
+  }
+
+  // Suggests a basic-land color split proportional to colored pip count,
+  // against whatever the (deck-size-scaled) Lands checklist target is —
+  // the same 36-baseline every other checklist number scales from, so
+  // this stays consistent with the checklist bar right above it.
+  function renderManaBaseSuggestion() {
+    const el = manaBaseSuggestionEl;
+    if (!el) return;
+    const pips = computeManaBasePips();
+    const totalPips = Object.values(pips).reduce((a, b) => a + b, 0);
+    if (!totalPips) {
+      el.innerHTML = '<p class="fg-hint">Add some colored cards to your deck to see a suggested land split.</p>';
+      return;
+    }
+    const landsTarget = scaledDeckBuilderTarget(DECK_BUILDER_TARGETS.find((t) => t.key === 'lands').target);
+    const colors = 'wubrg'.split('').filter((c) => pips[c] > 0);
+    // Largest-remainder rounding so the suggested counts actually sum to
+    // landsTarget instead of each color independently rounding away from it.
+    const raw = colors.map((c) => (pips[c] / totalPips) * landsTarget);
+    const base = raw.map(Math.floor);
+    let remainder = landsTarget - base.reduce((a, b) => a + b, 0);
+    const order = raw.map((v, i) => [v - base[i], i]).sort((a, b) => b[0] - a[0]);
+    for (let i = 0; i < remainder && i < order.length; i++) base[order[i][1]]++;
+
+    el.innerHTML = colors.map((c, i) =>
+      `<div class="mana-base-row">` +
+      `<i class="ms ms-${c} ms-cost"></i>` +
+      `<span class="mana-base-land">${BASIC_LAND_NAMES[c]}</span>` +
+      `<span class="mana-base-count">${base[i]}</span>` +
+      `</div>`
+    ).join('') + `<p class="fg-hint">Based on ${totalPips} colored pip${totalPips === 1 ? '' : 's'} across your deck, split across the ${landsTarget}-land target above. A rough starting point, not a solver — adjust for utility/dual lands you're already running.</p>`;
+  }
+
+  // EDHREC-based cut suggestions — the inverse of Commander Recs. Instead
+  // of boosting cards you don't own toward adding, this cross-references
+  // cards you've already built into the deck against EDHREC's top-cards
+  // list for the commander, and surfaces the ones with the lowest (or
+  // nonexistent) play rate as candidates worth a second look. Lands and
+  // the commander itself are excluded — a land's EDHREC absence isn't a
+  // meaningful signal, and cutting your own commander isn't an option.
+  function computeCutCandidates(commander, edhrecMap) {
+    const nameIndex = buildCollectionNameIndex();
+    const rows = [];
+    state.scratchpad.forEach((item) => {
+      if (item.ghost) return;
+      if (item.name.toLowerCase() === commander.name.toLowerCase()) return;
+      const matches = nameIndex.get(item.name.toLowerCase()) || [];
+      const card = matches[0];
+      if (card && /\bland\b/i.test(card.type_line || '')) return;
+      const hit = edhrecMap.get(item.name.toLowerCase());
+      const pct = hit && hit.potential_decks ? Math.round((hit.num_decks / hit.potential_decks) * 100) : null;
+      rows.push({ name: item.name, pct });
+    });
+    rows.sort((a, b) => (a.pct ?? -1) - (b.pct ?? -1));
+    return rows.slice(0, 10);
+  }
+
+  function renderCutSuggestions(commander) {
+    const el = cutSuggestionsEl;
+    if (!el) return;
+    const cache = state.cutSuggestions;
+    if (cache.commanderName !== commander.name) {
+      el.innerHTML = '<p class="fg-hint">Loading…</p>';
+      return;
+    }
+    if (cache.loading) {
+      el.innerHTML = '<p class="fg-hint">Checking EDHREC for how often each card is played with this commander…</p>';
+      return;
+    }
+    if (cache.error) {
+      el.innerHTML = `<p class="fg-hint">Couldn't load EDHREC data (${escapeHtml(cache.error)}).</p>`;
+      return;
+    }
+    const candidates = computeCutCandidates(commander, cache.edhrecMap);
+    if (!candidates.length) {
+      el.innerHTML = '<p class="fg-hint">Add some non-land cards to your build to see cut suggestions here.</p>';
+      return;
+    }
+    const list = candidates.map((r) =>
+      `<div class="cut-suggestions-row">` +
+      `<span class="cut-suggestions-name">${escapeHtml(r.name)}</span>` +
+      `<span class="cut-suggestions-pct">${r.pct != null ? r.pct + '% of EDHREC decks' : 'not in EDHREC\'s top list'}</span>` +
+      `</div>`
+    ).join('');
+    el.innerHTML = `<div class="cut-suggestions-list">${list}</div>` +
+      `<p class="fg-hint">Lowest EDHREC play-rate for this commander specifically — a prompt to reconsider, not an order to cut. Personal tech, combo pieces, and budget swaps are often intentionally rare on EDHREC.</p>`;
+  }
+
+  // Only refetches EDHREC when the commander actually changes — the
+  // scratchpad re-renders this whole panel on nearly every mutation, and
+  // refetching on each card add/remove would hammer EDHREC for no reason.
+  function ensureCutSuggestionsData(commander) {
+    const cache = state.cutSuggestions;
+    if (cache.commanderName === commander.name && !cache.loading) {
+      renderCutSuggestions(commander);
+      return;
+    }
+    const token = ++state.cutSuggestionsToken;
+    state.cutSuggestions = { commanderName: commander.name, edhrecMap: null, error: null, loading: true };
+    renderCutSuggestions(commander);
+    fetchEdhrecTopCards(commander.name).then((edhrecMap) => {
+      if (token !== state.cutSuggestionsToken) return;
+      state.cutSuggestions = { commanderName: commander.name, edhrecMap, error: null, loading: false };
+      renderCutSuggestions(commander);
+    }).catch((err) => {
+      if (token !== state.cutSuggestionsToken) return;
+      state.cutSuggestions = { commanderName: commander.name, edhrecMap: null, error: err.message, loading: false };
+      renderCutSuggestions(commander);
+    });
+  }
+
   function renderScratchCommanderRow() {
     scratchSetCommanderRow.classList.add('hidden');
     populateOwnedLegendaryDatalist(scratchCommanderOptions);
@@ -4598,7 +5253,9 @@
       }
       renderDeckBuilderTags(commander);
       renderDeckBuilderChecklist();
+      renderManaBaseSuggestion();
       renderCommanderSynergies(commander);
+      ensureCutSuggestionsData(commander);
     } else {
       scratchCommanderDisplay.textContent = name
         ? `${name} (not found — re-sync or clear)`
@@ -4606,6 +5263,7 @@
       scratchCommanderDisplay.classList.add('is-unset');
       deckBuilderPanel.classList.add('hidden');
       commanderSynergiesPanel.classList.add('hidden');
+      state.cutSuggestions = { commanderName: null, edhrecMap: null, error: null, loading: false };
     }
   }
 
@@ -4642,6 +5300,21 @@
     { key: 'counterspell', label: 'Counterspells', test: (c) => /counter target spell|counter that spell/i.test(c.oracle_text || '') },
     { key: 'flying-matters', label: 'Flying Matters', test: (c) => (c.keywords || []).some((k) => k.toLowerCase() === 'flying') },
   ];
+
+  // Build-checklist categories (Lands, Ramp, Card Draw, Removal, Board
+  // Wipes, Protection) as browsable tabs, reusing the exact same test
+  // functions the checklist bars use — so what you see matching "Ramp"
+  // here is exactly what counts toward the Ramp bar once added. These are
+  // prepended to whatever theme tabs computeCommanderSynergyTabs builds,
+  // so browsing/adding by checklist category happens inline in Deck
+  // Builder instead of needing the quick-jump chips to leave for Collection.
+  function computeDeckBuilderCategoryTabs(commander) {
+    return DECK_BUILDER_TARGETS.map((t) => ({
+      key: `checklist:${t.key}`,
+      label: `☑ ${t.label}`,
+      matches: state.collection.filter((c) => c.id !== commander.id && t.test(c))
+    }));
+  }
 
   function computeCommanderSynergies(commander) {
     if (!commander) return [];
@@ -4695,24 +5368,31 @@
       return commanderSynergiesCacheResult;
     }
 
-    let categories;
+    let themeCategories;
     let source;
     const saved = state.commanderSynergyTags[commander.name.toLowerCase()];
     if (saved && saved.length) {
-      categories = [];
+      themeCategories = [];
       for (const t of saved) {
         const matches = await runScryboxQuery(t.query, commander.id);
-        categories.push({ key: `ai:${t.query}`, label: t.label || t.query, query: t.query, matches });
+        themeCategories.push({ key: `ai:${t.query}`, label: t.label || t.query, query: t.query, matches });
       }
       source = 'ai';
     } else {
-      categories = computeCommanderSynergies(commander);
+      themeCategories = computeCommanderSynergies(commander);
       source = 'local';
     }
 
+    // Checklist categories (☑ Ramp, ☑ Lands, etc.) always show up first,
+    // regardless of whether the theme tabs are the local heuristic or an
+    // AI-suggested set — they map directly to the build checklist, not to
+    // "what does this commander care about."
+    const categories = [...computeDeckBuilderCategoryTabs(commander), ...themeCategories];
+
     // Anything outside the commander's color identity can't go in the deck
     // regardless of how well it matches the theme, so filter it out here —
-    // covers both the local heuristic and AI-suggested query results.
+    // covers checklist categories, the local heuristic, and AI-suggested
+    // query results alike.
     categories.forEach((cat) => {
       cat.matches = cat.matches.filter((c) => isColorIdentityLegalUnder(commander, c));
     });
@@ -4785,9 +5465,23 @@
         : `No other owned cards match this theme yet.`;
       commanderSynergiesContent.appendChild(empty);
     } else {
+      // Theme tabs are usually a modest handful of matches, but the new
+      // checklist categories (especially Lands) can realistically match
+      // hundreds of owned cards — cap the in-panel grid so it stays a
+      // quick browse-and-add list rather than dumping a whole sub-collection
+      // into a small panel. Full Collection search (via the quick-jump
+      // chips above the checklist) is still there for browsing everything.
+      const CATEGORY_GRID_CAP = 60;
+      const shown = active.availableMatches.slice(0, CATEGORY_GRID_CAP);
+      if (active.availableMatches.length > CATEGORY_GRID_CAP) {
+        const note = document.createElement('p');
+        note.className = 'fg-hint cmdr-syn-query';
+        note.textContent = `Showing ${CATEGORY_GRID_CAP} of ${active.availableMatches.length} — narrow further with a Collection search for the rest.`;
+        commanderSynergiesContent.appendChild(note);
+      }
       const grid = document.createElement('div');
       grid.className = 'results-grid cmdr-syn-grid';
-      active.availableMatches.forEach((card) => {
+      shown.forEach((card) => {
         const tile = document.createElement('div');
         tile.className = 'card-tile cmdr-syn-tile';
         const img = document.createElement('img');
@@ -4942,6 +5636,7 @@
       deckSizeInput.value = state.appSettings.deckBuilderTargetSize;
       persistAppSettings();
       renderDeckBuilderChecklist();
+      renderManaBaseSuggestion();
     });
     scratchSetCommanderBtn.addEventListener('click', () => {
       scratchCommanderInput.value = state.scratchpadCommander || '';

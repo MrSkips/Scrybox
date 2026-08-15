@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mana-font@latest/css/mana.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Beleren+Bold:wght@400&family=Source+Sans+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=42">
 </head>
 <body>
 
@@ -112,7 +112,7 @@
         </div>
         <div class="stats-card stats-card-wide">
           <h3>Top 10 Most Complete Sets</h3>
-          <p class="fg-hint">How close you are to a full set, by unique printings owned vs. Scryfall's total count for that set (includes all rarities/variants, so exact completion may differ from a "main set" checklist).</p>
+          <p class="fg-hint">How close you are to a full set, by unique printings owned vs. Scryfall's total count for that set (includes all rarities/variants, so exact completion may differ from a "main set" checklist). Click a set to see exactly what you're missing.</p>
           <div id="statsCompletionBars" class="stats-bars"></div>
         </div>
         <div class="stats-card">
@@ -145,6 +145,11 @@
         <div class="stats-card stats-card-wide">
           <h3>Special Printings</h3>
           <div class="stats-summary-row" id="statsSpecialSummary"></div>
+        </div>
+        <div class="stats-card stats-card-wide">
+          <h3>Collection Utilization</h3>
+          <p class="fg-hint">How much of your collection is actually in a deck right now, vs. just sitting in storage.</p>
+          <div id="statsUtilization" class="stats-bars"></div>
         </div>
         <div class="stats-card stats-card-wide">
           <h3>Top 10 Most Valuable Cards</h3>
@@ -245,6 +250,13 @@
         <div class="pagination-top" id="paginationTop"></div>
       </div>
 
+      <div id="bulkActionBar" class="bulk-action-bar hidden">
+        <span id="bulkActionCount" class="bulk-action-count">No cards selected</span>
+        <button type="button" id="bulkActionAddBtn" class="bulk-action-btn" disabled>+ Add to Deck Builder</button>
+        <button type="button" id="bulkActionCandidateBtn" class="bulk-action-btn" disabled>☆ Tag as Commander Candidates</button>
+        <button type="button" id="bulkActionClearBtn" class="bulk-action-btn bulk-action-clear">Done</button>
+      </div>
+
       <div id="resultsGrid" class="results-grid"></div>
       <div id="resultsTableWrap" class="results-table-wrap hidden">
         <table class="results-table" id="resultsTable">
@@ -293,8 +305,10 @@
         <div class="view-toggle-wrap">
           <button type="button" id="viewGridBtn" class="view-toggle-btn active">Grid</button>
           <button type="button" id="viewTableBtn" class="view-toggle-btn">Table</button>
+          <button type="button" id="bulkSelectToggleBtn" class="view-toggle-btn" title="Select multiple cards to bulk add or tag" aria-label="Toggle bulk selection mode">☑ Select</button>
         </div>
         <button type="button" id="commanderRecsBtn" class="ai-settings-btn sidebar-full-btn" title="Pick a commander and get owned-card recommendations" aria-label="Open Commander Recommendations">🪄 Commander Recs</button>
+        <div id="filteredTotalValue" class="filtered-total-value" title="Combined price of every card currently matching your search + filters"></div>
       </div>
 
       <div class="filter-group">
@@ -380,6 +394,13 @@
       </div>
 
       <div class="filter-group">
+        <h3>Creature Type <span class="fg-hint">(tribal)</span></h3>
+        <div class="chip-row chip-row-scroll" id="tribalChips">
+          <!-- populated dynamically from owned creatures, showing copies owned per type -->
+        </div>
+      </div>
+
+      <div class="filter-group">
         <h3>Rarity</h3>
         <div class="chip-row" id="rarityChips">
           <button type="button" class="chip" data-rarity="common">Common</button>
@@ -406,11 +427,29 @@
       </div>
 
       <div class="filter-group">
+        <h3>Price</h3>
+        <div class="range-row">
+          <input type="number" id="priceMinInput" min="0" step="0.01" placeholder="Min $">
+          <span class="range-sep">–</span>
+          <input type="number" id="priceMaxInput" min="0" step="0.01" placeholder="Max $">
+        </div>
+        <p class="fg-hint">Combine with Sort by Price to see just your highest (or lowest) value cards, with the total below updating to match.</p>
+      </div>
+
+      <div class="filter-group">
         <h3>Ownership</h3>
         <div class="chip-row" id="ownershipChips">
           <button type="button" class="chip" data-own="foil">Foil</button>
           <button type="button" class="chip" data-own="nonfoil">Non-foil</button>
         </div>
+      </div>
+
+      <div class="filter-group">
+        <h3>Commander Candidates</h3>
+        <div class="chip-row">
+          <button type="button" class="chip" id="commanderCandidateChip">⭐ Tagged as Potential Commander</button>
+        </div>
+        <p class="fg-hint">Mark any card as a potential commander from its card modal, then filter to just those here.</p>
       </div>
 
       <div class="filter-group">
@@ -451,6 +490,7 @@
         <div id="modalVersions" class="modal-versions hidden"></div>
         <button type="button" id="modalAddToScratchpad" class="modal-add-btn">+ Add to Deck Builder</button>
         <button type="button" id="modalSetCommander" class="modal-set-commander-btn hidden">👑 Set as Commander</button>
+        <button type="button" id="modalToggleCommanderCandidate" class="modal-candidate-btn">☆ Mark as Potential Commander</button>
       </div>
       <div class="modal-details">
         <h2 id="modalName"></h2>
@@ -606,11 +646,31 @@
   </div>
 </div>
 
+<!-- MISSING FROM SET MODAL -->
+<div id="missingSetModal" class="modal hidden">
+  <div class="modal-backdrop" id="missingSetModalBackdrop"></div>
+  <div class="modal-content missing-set-modal-content">
+    <button class="modal-close" id="missingSetModalClose" aria-label="Close">✕</button>
+    <h2 id="missingSetModalTitle">Missing from set</h2>
+    <div id="missingSetModalContent"></div>
+  </div>
+</div>
+
 <!-- DECK BUILDER SCREEN -->
 <section id="deckBuilderScreen" class="deck-builder-screen hidden">
   <div class="deck-builder-inner">
     <h1>Deck Builder</h1>
     <p class="fg-hint">Build a list while you browse (the + on any card adds it here), then export it for Archidekt, Moxfield, or Arena.</p>
+
+    <details class="saved-builds-panel">
+      <summary>📚 Saved builds</summary>
+      <p class="fg-hint">Everything below (commander, cards, deck size) is your one <strong>active</strong> build. Save it under a name to snapshot it, then load a different saved build to swap it in — the build you were on gets an undo, in case you forgot to save it first.</p>
+      <div id="savedBuildsList" class="saved-builds-list"></div>
+      <div class="saved-build-save-row">
+        <input type="text" id="savedBuildNameInput" placeholder="Name this build…">
+        <button type="button" id="savedBuildSaveBtn">Save current build</button>
+      </div>
+    </details>
 
     <div class="deck-commander-row">
       <span class="deck-commander-label">Build commander:</span>
@@ -639,6 +699,14 @@
         <button type="button" id="decklistImportBtn">Import</button>
         <div id="decklistImportResult" class="decklist-import-result" aria-live="polite"></div>
       </details>
+
+      <details class="decklist-import">
+        <summary>🔍 Check a decklist against your collection</summary>
+        <p class="fg-hint">Paste any decklist (a netdeck, a friend's list, whatever) to see what you already own vs. what you'd need to pick up — nothing here touches your Deck Builder build. Same paste format as Import above.</p>
+        <textarea id="decklistDiffInput" rows="6" placeholder="1 Sol Ring&#10;1 Lightning Bolt&#10;..."></textarea>
+        <button type="button" id="decklistDiffBtn">Check</button>
+        <div id="decklistDiffResult" class="decklist-import-result" aria-live="polite"></div>
+      </details>
     </div>
 
     <div id="deckBuilderPanel" class="deck-builder-panel hidden">
@@ -651,11 +719,15 @@
       </div>
       <div id="deckBuilderTags" class="deck-builder-tags"></div>
       <div id="deckBuilderChecklist" class="deck-builder-checklist"></div>
+      <h4 class="mana-base-heading">Suggested Mana Base</h4>
+      <div id="manaBaseSuggestion" class="mana-base-suggestion"></div>
+      <h4 class="mana-base-heading">Possible Cuts (EDHREC)</h4>
+      <div id="cutSuggestions" class="cut-suggestions"></div>
     </div>
 
     <div id="commanderSynergiesPanel" class="commander-synergies-panel hidden">
-      <h3 class="deck-tools-heading">Commander Synergies</h3>
-      <p class="fg-hint">Synergy themes detected on your commander — each tab lists your other owned cards that share the theme.</p>
+      <h3 class="deck-tools-heading">Browse by Category</h3>
+      <p class="fg-hint">The ☑ tabs are your build-checklist categories (Ramp, Lands, Removal, etc.) — the rest are synergy themes detected on your commander. Every tab lists your other owned cards that match, with a quick + to pull one straight into the deck.</p>
       <div class="deck-grade-actions">
         <button type="button" id="commanderSynergiesRefineBtn" class="hidden ai-action-btn">🔮 Suggest tags with AI</button>
         <button type="button" id="commanderSynergiesResetBtn" class="hidden">↺ Reset to default tags</button>
@@ -688,10 +760,10 @@
   <button type="button" id="undoToastBtn">Undo</button>
 </div>
 
-<div id="appVersionBadge" class="app-version-badge">v37</div>
+<div id="appVersionBadge" class="app-version-badge">v42</div>
 
 <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<script src="app.js?v=37"></script>
+<script src="app.js?v=42"></script>
 </body>
 </html>

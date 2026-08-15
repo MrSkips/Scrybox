@@ -349,13 +349,49 @@ A few other things from this pass:
 - **Consistent color language.** Blue stays the app's primary action color; gold is reserved for commander-related controls; the existing teal "this costs your own API key" accent on AI buttons is unchanged; rarity gets its own dedicated palette instead of being unstyled plain text.
 - **A few dead spots got fixed**: the Stats and Deck Builder progress bars used a hardcoded pure-black track regardless of theme — now themed properly; the new sidebar filter dropdown got real styling instead of browser defaults.
 
+## Three more filters
+
+- **Creature Type (tribal)** — a new sidebar group, built from your actual creatures' subtypes, shows the top 20 by how many copies you own of each (e.g. "Zombie (14)"). Click one (or several — it's OR, like Set) to filter to just those types. This is really just a discoverable front-end for `t:zombie`-style search, which already worked, but now you can see the counts before you search instead of guessing.
+- **Potential Commander tag** — any card's modal now has a **☆ Mark as Potential Commander** button, independent of whether it's actually legendary/eligible (so it doubles as a general "cards I'm considering" bookmark list, Backgrounds included). Tagged cards persist across sessions. A **Commander Candidates** sidebar chip filters down to just your tagged cards.
+- **Price range + always-visible total** — a **Price** filter (Min/Max) now sits in the sidebar alongside the other range filters, and the sidebar's **Display** section always shows a running dollar total of whatever's currently filtered — no need to switch to the separate Value tab first. Set a Price min, sort by Price, and the total updates to match just those results.
+
+## Deck Builder: browse by category, mana base suggestion
+
+The Commander Synergies panel now doubles as a category browser: the ☑-prefixed tabs (Ramp, Lands, Card Draw, Removal, Board Wipes, Protection) are your build-checklist categories, shown as ownable/pull-able matches right there in Deck Builder — the same quick-add "+" the theme tabs already had — so you don't have to leave for a Collection search just to find more ramp. The old quick-jump chips above the checklist still work too, for when you want the full sidebar filter set on a category instead.
+
+Below the build checklist, a **Suggested Mana Base** section tallies colored mana symbols across everything currently in your build (real cards only — ghost cards have no cost data) and suggests a basic-land split proportional to those pips, sized to your scaled land target. It's a rough starting point, not a solver — it doesn't know about dual/utility lands you're already running.
+
+## Collection Utilization (Stats)
+
+A new Stats card shows what fraction of your total copies are currently sitting in a registered deck vs. never used anywhere — same deck-vs-storage split the "Not in a Deck" sidebar filter already uses, just aggregated. Doesn't count your Deck Builder scratchpad, since that's a build-in-progress, not a registered deck yet.
+
+## Missing-from-set report (Stats)
+
+The "Top 10 Most Complete Sets" card in Stats is now clickable — click a set row to open a modal showing exactly which cards from that set you don't own yet (grid, with images, pulled live from Scryfall). Handy for finishing off a near-complete set.
+
+## Check a decklist against your collection
+
+A second "Check a decklist against your collection" panel sits next to the existing decklist importer (Decks & Binders tab). Paste any decklist and it splits into three groups: cards you fully own enough copies of, cards you're short on, and cards you don't own at all — without actually importing/pulling anything. Good for a quick "what do I still need to buy" pass before committing to an import.
+
+## Possible Cuts (EDHREC)
+
+Deck Builder now has a **Possible Cuts** panel below the mana base suggestion. It's the inverse of Commander Recs: instead of suggesting adds, it cross-references everything currently in your build against EDHREC's top-cards list for your commander and surfaces the 10 lowest play-rate cards (lands and the commander itself excluded) — either a low percentage or "not in EDHREC's top list" if it doesn't show up there at all. It's a prompt to reconsider, not an order to cut — personal tech, combo pieces, and budget swaps are often intentionally rare on EDHREC. Only refetches EDHREC when you change commanders, not on every card add/remove.
+
+## Bulk selection mode
+
+A **☑ Select** button next to the Grid/Table toggle turns every grid tile into a selectable checkbox instead of a modal-opener — click tiles to select/deselect (gold ring + checkmark), then use the action bar that appears above the grid to either add all selected cards to the Deck Builder (best-stocked location auto-picked, same as the decklist importer — no picker popup per card) or tag them all as Commander Candidates in one go. "Done" exits selection mode. Grid view only — table rows keep their existing single click-to-open behavior.
+
+## Saved builds (multiple decks in the Deck Builder)
+
+The Deck Builder only ever has one "active" build (its scratchpad, commander, and deck size) — that hasn't changed. What's new is a **📚 Saved builds** panel at the top of the screen: name your current build and hit **Save current build** to snapshot it, then **Load** any other saved build to swap it into the active slot (search stays color-locked to whichever commander is currently active). Switching builds isn't a one-way trip — the build you were on before the switch goes into the same undo toast used elsewhere, in case you forgot to save it first. **Delete** removes a saved build (also undoable). Saving over an existing name overwrites it.
+
 ## Keyboard shortcuts
 
 `/` focuses the search box, `s` toggles the Deck Builder tab — both only fire when you're not already typing somewhere. `Esc` closes whatever modal is open.
 
 ## Version
 
-A small, low-contrast version number (e.g. `v31`) sits in the bottom-right corner of the page — bump it (and the matching `?v=N` cache-busting query string on `style.css`/`app.js` in `index.html`) any time either file changes, so browsers don't serve a stale cached copy.
+A small, low-contrast version number (e.g. `v42`) sits in the bottom-right corner of the page — bump it (and the matching `?v=N` cache-busting query string on `style.css`/`app.js` in `index.html`) any time either file changes, so browsers don't serve a stale cached copy.
 
 ## Testing
 
